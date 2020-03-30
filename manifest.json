@@ -1,0 +1,16 @@
+{
+  "manifest_version": 2,
+  "name": "SoundCloud Downloader",
+  "version": "1.0.1",
+  "description": "Adds download buttons for tracks on soundcloud.com",
+  "permissions": ["downloads", "webRequest", "*://*.soundcloud.com/*", "*://api-v2.soundcloud.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["*://*.soundcloud.com/*"],
+      "js": ["scripts/jquery.js", "scripts/arrive.js", "index.js"]
+    }
+  ],
+  "background": {
+    "scripts": ["scripts/browser-id3-writer.js", "downloader.js"]
+  }
+}
