@@ -24,9 +24,20 @@ function addDownloadButtonToGroup(group) {
   });
 }
 
+const removeBuyButtons = () => {
+  const buyButtons = document.querySelectorAll("a.sc-buylink");
+
+  for (let i = 0; i < buyButtons.length; i++) {
+    console.log("remove buy button");
+
+    const buyButton = buyButtons[i];
+
+    buyButton.parentNode.removeChild(buyButton);
+  }
+};
+
 const handlePageLoad = () => {
-  // remove 'buy'' buttons
-  $("a.sc-buylink").remove();
+  removeBuyButtons();
 
   // add download button to button group
   $(".sc-button-group-medium > .sc-button-like").each(function () {
