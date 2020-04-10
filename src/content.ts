@@ -3,6 +3,12 @@ import { Observer, ObserverEvent } from "./observer";
 let observer: Observer | null = null;
 
 const addDownloadButtonToParent = (parent: Node & ParentNode) => {
+  if (window.location.href.includes("/sets/")) {
+    console.log("We are looking at a playlist or an album, do not display a download button!");
+
+    return;
+  }
+
   const downloadButtonExists = parent.querySelector("button.sc-button-download") !== null;
 
   if (downloadButtonExists) {
@@ -30,8 +36,6 @@ const addDownloadButtonToParent = (parent: Node & ParentNode) => {
 };
 
 const removeElementFromParent = (element: Element) => {
-  console.log("Removing element...", element);
-
   element.parentNode.removeChild(element);
 };
 
