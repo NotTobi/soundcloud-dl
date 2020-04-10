@@ -6,6 +6,7 @@ interface MediaTranscodingFormat {
 
 interface MediaTranscoding {
   snipped: boolean;
+  quality: string;
   url: string;
   format: MediaTranscodingFormat;
 }
@@ -30,6 +31,11 @@ export interface TrackDetails {
 
 interface ProgressiveStream {
   url: string;
+}
+
+interface StreamDetails {
+  url: string;
+  extension: string;
 }
 
 export class SoundCloudApi {
@@ -64,7 +70,7 @@ export class SoundCloudApi {
     return track;
   }
 
-  async getStreamUrl(progressiveStreamUrl: string) {
+  async getStreamDetails(progressiveStreamUrl: string): Promise<StreamDetails> {
     const url = `${progressiveStreamUrl}?client_id=${this.clientId}`;
 
     this.logger.logInfo("Fetching stream from progressiveStreamUrl", progressiveStreamUrl);
@@ -77,7 +83,17 @@ export class SoundCloudApi {
       return null;
     }
 
-    return stream.url;
+    let extension = "mp3";
+    const regexResult = /\.(\w{3,4})(?:$|\?)/.exec(stream.url);
+
+    if (regexResult.length === 2) {
+      extension = regexResult[1];
+    }
+
+    return {
+      url: stream.url,
+      extension,
+    };
   }
 
   async downloadArtwork(artworkUrl: string) {

@@ -18,14 +18,19 @@ export class Logger {
 
     switch (logLevel) {
       case LogLevel.Critical:
+        console.error(timestamp, source, "[CRITICAL]", message, ...args);
+        break;
       case LogLevel.Error:
         console.error(timestamp, source, message, ...args);
         break;
       case LogLevel.Warning:
         console.warn(timestamp, source, message, ...args);
         break;
-      default:
-        console.log(timestamp, source, message, ...args);
+      case LogLevel.Information:
+        console.info(timestamp, source, message, ...args);
+        break;
+      case LogLevel.Debug:
+        console.debug(timestamp, source, message, ...args);
         break;
     }
   }

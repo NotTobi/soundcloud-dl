@@ -4,6 +4,84 @@ import { SoundCloudApi, TrackDetails } from "./soundcloudApi";
 const apiUrl = "https://api-v2.soundcloud.com";
 const soundcloudApi = new SoundCloudApi(apiUrl);
 const trackIds: { [tabId: string]: string } = {};
+let authorizationHeader: string | null = null;
+
+browser.webRequest.onBeforeSendHeaders.addListener(
+  (details) => {
+    let requestHasAuth = false;
+
+    for (let i = 0; i < details.requestHeaders.length; i++) {
+      if (details.requestHeaders[i].name !== "Authorization") continue;
+
+      requestHasAuth = true;
+      const newAuthorizationHeader = details.requestHeaders[i].value;
+
+      if (!newAuthorizationHeader.startsWith("OAuth") || newAuthorizationHeader === authorizationHeader) continue;
+
+      authorizationHeader = newAuthorizationHeader;
+      console.log("Stored Authorization Header:", authorizationHeader);
+    }
+
+    if (!requestHasAuth) {
+      details.requestHeaders.push({
+        name: "Authorization",
+        value: authorizationHeader,
+      });
+    }
+
+    return details;
+  },
+  { urls: ["*://api-v2.soundcloud.com/*"] },
+  ["requestHeaders", "blocking"]
+);
+
+let headerReceivedOptions = [];
+
+if (window.navigator.userAgent.includes("hrome")) {
+  headerReceivedOptions = ["extraHeaders", "blocking", "responseHeaders"];
+} else {
+  headerReceivedOptions = ["blocking", "responseHeaders"];
+}
+
+browser.webRequest.onHeadersReceived.addListener(
+  (details) => {
+    for (let i = 0; i < details.responseHeaders.length; i++) {
+      if (details.responseHeaders[i].name == "X-Content-Type-Options") {
+        details.responseHeaders.splice(i, 1);
+      }
+      if (details.responseHeaders[i].name == "Access-Control-Allow-Origin") {
+        details.responseHeaders.splice(i, 1);
+      }
+    }
+
+    details.responseHeaders.push({
+      name: "Access-Control-Allow-Origin",
+      value: "*",
+    });
+    details.responseHeaders.push({
+      name: "Access-Control-Allow-Headers",
+      value: "Authorization, Content-Type, Device-Locale, X-CSRF-Token",
+    });
+    details.responseHeaders.push({
+      name: "Access-Control-Allow-Methods",
+      value: "GET, POST, PUT, PATCH, DELETE",
+    });
+    details.responseHeaders.push({
+      name: "Access-Control-Expose-Headers",
+      value: "Date",
+    });
+    details.responseHeaders.push({
+      name: "Access-Control-Allow-Credentials",
+      value: "true",
+    });
+
+    return details;
+  },
+  {
+    urls: ["https://api-v2.soundcloud.com/*"],
+  },
+  headerReceivedOptions
+);
 
 browser.webRequest.onBeforeRequest.addListener(
   (details) => {
@@ -16,8 +94,6 @@ browser.webRequest.onBeforeRequest.addListener(
       const trackId = match[1];
 
       trackIds[details.tabId] = trackId;
-
-      console.log("Tab:", details.tabId, "TrackId:", trackId);
     }
 
     const params = new URLSearchParams(details.url);
@@ -151,6 +227,7 @@ interface DownloadData {
   avatarUrl: string;
   artworkUrl: string;
   streamUrl: string;
+  fileExtension: string;
 }
 
 async function handleDownload(data: DownloadData) {
@@ -198,7 +275,8 @@ async function handleDownload(data: DownloadData) {
       text: "https://addons.mozilla.org/firefox/addon/soundcloud-dl/",
     });
 
-  if (artworkBuffer) {
+  // todo: m4a artwork is currently not set
+  if (artworkBuffer && data.fileExtension === "mp3") {
     // Artwork
     writer.setFrame("APIC", {
       type: 3,
@@ -211,7 +289,7 @@ async function handleDownload(data: DownloadData) {
 
   const downloadOptions = {
     url: writer.getURL(),
-    filename: sanitizeFileName(`${artistsString} - ${metadata.title}.mp3`),
+    filename: sanitizeFileName(`${artistsString} - ${metadata.title}.${data.fileExtension}`),
   };
 
   await browser.downloads.download(downloadOptions);
@@ -230,7 +308,15 @@ function getProgressiveStreamUrl(details: TrackDetails): string | null {
     return null;
   }
 
-  return progressiveStreams[0]?.url;
+  const hqStreams = progressiveStreams.filter((i) => i.quality === "hq");
+
+  if (hqStreams.length > 0) {
+    console.info("Using High Quality Stream!");
+
+    return hqStreams[0].url;
+  }
+
+  return progressiveStreams[0].url;
 }
 
 browser.runtime.onMessage.addListener(async (request, sender) => {
@@ -250,12 +336,13 @@ browser.runtime.onMessage.addListener(async (request, sender) => {
 
   if (!progressiveStreamUrl) return;
 
-  const streamUrl = await soundcloudApi.getStreamUrl(progressiveStreamUrl);
+  const stream = await soundcloudApi.getStreamDetails(progressiveStreamUrl);
 
-  if (!streamUrl) return;
+  if (!stream) return;
 
   const dowwnloadData: DownloadData = {
-    streamUrl,
+    streamUrl: stream.url,
+    fileExtension: stream.extension,
     title: trackDetails.title,
     username: trackDetails.user.username,
     artworkUrl: trackDetails.artwork_url,

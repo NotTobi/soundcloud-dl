@@ -11,7 +11,13 @@
     "96": "icons/icon-96.png",
     "128": "icons/icon-128.png"
   },
-  "permissions": ["downloads", "webRequest", "*://*.soundcloud.com/*", "*://api-v2.soundcloud.com/*"],
+  "permissions": [
+    "downloads",
+    "webRequest",
+    "webRequestBlocking",
+    "*://*.soundcloud.com/*",
+    "*://api-v2.soundcloud.com/*"
+  ],
   "content_scripts": [
     {
       "matches": ["*://*.soundcloud.com/*"],
