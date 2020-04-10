@@ -1,3 +1,5 @@
+import { Logger } from "./logger";
+
 export interface ObserverEvent {
   selector: string;
   callback: (node: any) => void;
@@ -7,21 +9,41 @@ export class Observer {
   private observer: MutationObserver;
   private events: ObserverEvent[] = [];
   private unqiueNodeId: number = 0;
+  private logger: Logger;
 
   constructor() {
     this.observer = new MutationObserver((mutations) => mutations.forEach((mutation) => this.handleMutation(mutation)));
+    this.logger = Logger.create("Observer");
   }
 
   start(node: Node) {
     this.observer.observe(node, { subtree: true, attributes: true, childList: true });
+
+    this.logger.logDebug("Started");
   }
 
   stop() {
     this.observer.disconnect();
+
+    this.logger.logDebug("Stopped");
   }
 
   addEvent(event: ObserverEvent) {
+    if (!event.selector) {
+      this.logger.logWarn("Selector was not specified");
+
+      return;
+    }
+
+    if (!event.callback) {
+      this.logger.logWarn("Callback was not specified");
+
+      return;
+    }
+
     this.events.push(event);
+
+    this.logger.logDebug("Event added", event);
   }
 
   private handleMutation(mutation: MutationRecord) {
@@ -38,6 +60,8 @@ export class Observer {
   }
 
   private handleNodes(nodes: any[] | NodeList, event: ObserverEvent, recursive: boolean = true) {
+    if (!nodes) return;
+
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i];
 
@@ -54,6 +78,6 @@ export class Observer {
   }
 
   private matchesSelectors(element: any, selectors: string) {
-    return element instanceof HTMLElement && element.matches(selectors);
+    return element && element instanceof HTMLElement && element.matches(selectors);
   }
 }
