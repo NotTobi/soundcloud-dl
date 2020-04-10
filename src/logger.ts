@@ -3,8 +3,7 @@ export enum LogLevel {
   Information = 1,
   Warning = 2,
   Error = 3,
-  Critical = 4,
-  None = 5,
+  None = 4,
 }
 
 export class Logger {
@@ -17,9 +16,6 @@ export class Logger {
     const source = `[${this.source}]`;
 
     switch (logLevel) {
-      case LogLevel.Critical:
-        console.error(timestamp, source, "[CRITICAL]", message, ...args);
-        break;
       case LogLevel.Error:
         console.error(timestamp, source, message, ...args);
         break;

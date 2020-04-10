@@ -1,17 +1,20 @@
 import ID3Writer from "browser-id3-writer";
 import { SoundCloudApi, TrackDetails } from "./soundcloudApi";
+import { Logger } from "./logger";
+import { onBeforeSendHeaders, onBeforeRequest, downloadToFile, onMessageFromTab } from "./compatibilityStubs";
 
 const apiUrl = "https://api-v2.soundcloud.com";
 const soundcloudApi = new SoundCloudApi(apiUrl);
+const logger = Logger.create("Background");
 const trackIds: { [tabId: string]: string } = {};
 let authorizationHeader: string | null = null;
 
-browser.webRequest.onBeforeSendHeaders.addListener(
-  (details) => {
-    let requestHasAuth = false;
+onBeforeSendHeaders((details) => {
+  let requestHasAuth = false;
 
+  if (details.requestHeaders) {
     for (let i = 0; i < details.requestHeaders.length; i++) {
-      if (details.requestHeaders[i].name !== "Authorization") continue;
+      if (details.requestHeaders[i].name.toLowerCase() !== "authorization") continue;
 
       requestHasAuth = true;
       const newAuthorizationHeader = details.requestHeaders[i].value;
@@ -19,93 +22,42 @@ browser.webRequest.onBeforeSendHeaders.addListener(
       if (!newAuthorizationHeader.startsWith("OAuth") || newAuthorizationHeader === authorizationHeader) continue;
 
       authorizationHeader = newAuthorizationHeader;
-      console.log("Stored Authorization Header:", authorizationHeader);
+      logger.logInfo("Stored Authorization Header:", authorizationHeader);
     }
 
-    if (!requestHasAuth) {
+    if (!requestHasAuth && authorizationHeader) {
       details.requestHeaders.push({
         name: "Authorization",
         value: authorizationHeader,
       });
     }
+  }
 
-    return details;
-  },
-  { urls: ["*://api-v2.soundcloud.com/*"] },
-  ["requestHeaders", "blocking"]
-);
+  return {
+    requestHeaders: details.requestHeaders,
+  };
+});
 
-let headerReceivedOptions = [];
+onBeforeRequest((details) => {
+  if (details.tabId < 0) return;
 
-if (window.navigator.userAgent.includes("hrome")) {
-  headerReceivedOptions = ["extraHeaders", "blocking", "responseHeaders"];
-} else {
-  headerReceivedOptions = ["blocking", "responseHeaders"];
-}
+  const match = details.url.match(/tracks\/(\d+)/);
 
-browser.webRequest.onHeadersReceived.addListener(
-  (details) => {
-    for (let i = 0; i < details.responseHeaders.length; i++) {
-      if (details.responseHeaders[i].name == "X-Content-Type-Options") {
-        details.responseHeaders.splice(i, 1);
-      }
-      if (details.responseHeaders[i].name == "Access-Control-Allow-Origin") {
-        details.responseHeaders.splice(i, 1);
-      }
-    }
+  // currently I have not found a better way to do this
+  if (match?.length == 2) {
+    const trackId = match[1];
 
-    details.responseHeaders.push({
-      name: "Access-Control-Allow-Origin",
-      value: "*",
-    });
-    details.responseHeaders.push({
-      name: "Access-Control-Allow-Headers",
-      value: "Authorization, Content-Type, Device-Locale, X-CSRF-Token",
-    });
-    details.responseHeaders.push({
-      name: "Access-Control-Allow-Methods",
-      value: "GET, POST, PUT, PATCH, DELETE",
-    });
-    details.responseHeaders.push({
-      name: "Access-Control-Expose-Headers",
-      value: "Date",
-    });
-    details.responseHeaders.push({
-      name: "Access-Control-Allow-Credentials",
-      value: "true",
-    });
+    trackIds[details.tabId] = trackId;
+  }
 
-    return details;
-  },
-  {
-    urls: ["https://api-v2.soundcloud.com/*"],
-  },
-  headerReceivedOptions
-);
+  const params = new URLSearchParams(details.url);
 
-browser.webRequest.onBeforeRequest.addListener(
-  (details) => {
-    if (details.tabId < 0) return;
+  const clientId = params.get("client_id");
 
-    const match = details.url.match(/tracks\/(\d+)/);
+  if (!clientId) return;
 
-    // currently I have not found a better way to do this
-    if (match?.length == 2) {
-      const trackId = match[1];
-
-      trackIds[details.tabId] = trackId;
-    }
-
-    const params = new URLSearchParams(details.url);
-
-    const clientId = params.get("client_id");
-
-    if (!clientId) return;
-
-    soundcloudApi.setClientId(clientId);
-  },
-  { urls: ["*://api-v2.soundcloud.com/*"] }
-);
+  soundcloudApi.setClientId(clientId);
+});
 
 function sanitizeFileName(input: string) {
   return input.replace(/[\\\/\:\*\?\"\'\<\>\~\|]+/g, "");
@@ -239,7 +191,7 @@ async function handleDownload(data: DownloadData) {
   let artworkUrl = data.artworkUrl;
 
   if (!artworkUrl) {
-    console.log("No Artwork URL could be determined. Fallback to User Avatar");
+    logger.logInfo("No Artwork URL could be determined. Fallback to User Avatar");
     artworkUrl = avatarUrl;
   }
 
@@ -249,13 +201,13 @@ async function handleDownload(data: DownloadData) {
 
     artworkBuffer = await soundcloudApi.downloadArtwork(artworkUrl);
   } else {
-    console.warn("No Artwork URL could be determined");
+    logger.logWarn("No Artwork URL could be determined");
   }
 
   const streamBuffer = await soundcloudApi.downloadStream(streamUrl);
 
   if (!streamBuffer) {
-    console.error("Failed to download stream");
+    logger.logError("Failed to download stream");
 
     return;
   }
@@ -287,12 +239,10 @@ async function handleDownload(data: DownloadData) {
 
   writer.addTag();
 
-  const downloadOptions = {
-    url: writer.getURL(),
-    filename: sanitizeFileName(`${artistsString} - ${metadata.title}.${data.fileExtension}`),
-  };
+  const downloadUrl = writer.getURL();
+  const filename = sanitizeFileName(`${artistsString} - ${metadata.title}.${data.fileExtension}`);
 
-  await browser.downloads.download(downloadOptions);
+  await downloadToFile(downloadUrl, filename);
 }
 
 function getProgressiveStreamUrl(details: TrackDetails): string | null {
@@ -303,7 +253,7 @@ function getProgressiveStreamUrl(details: TrackDetails): string | null {
   );
 
   if (progressiveStreams.length < 1) {
-    console.log("No progressive streams found!");
+    logger.logError("No progressive streams found!");
 
     return null;
   }
@@ -311,7 +261,7 @@ function getProgressiveStreamUrl(details: TrackDetails): string | null {
   const hqStreams = progressiveStreams.filter((i) => i.quality === "hq");
 
   if (hqStreams.length > 0) {
-    console.info("Using High Quality Stream!");
+    logger.logInfo("Using High Quality Stream!");
 
     return hqStreams[0].url;
   }
@@ -319,14 +269,14 @@ function getProgressiveStreamUrl(details: TrackDetails): string | null {
   return progressiveStreams[0].url;
 }
 
-browser.runtime.onMessage.addListener(async (request, sender) => {
-  if (sender.id != browser.runtime.id && request.type === "DOWNLOAD") return;
+onMessageFromTab(async (tabId, message) => {
+  if (message.type !== "DOWNLOAD") return;
 
-  const trackId = trackIds[sender.tab.id];
+  const trackId = trackIds[tabId];
 
   if (!trackId) return;
 
-  console.log("Downloading...", trackId);
+  logger.logInfo("Downloading...", trackId);
 
   const trackDetails = await soundcloudApi.getTrack(trackId);
 
@@ -340,7 +290,7 @@ browser.runtime.onMessage.addListener(async (request, sender) => {
 
   if (!stream) return;
 
-  const dowwnloadData: DownloadData = {
+  const downloadData: DownloadData = {
     streamUrl: stream.url,
     fileExtension: stream.extension,
     title: trackDetails.title,
@@ -349,5 +299,5 @@ browser.runtime.onMessage.addListener(async (request, sender) => {
     avatarUrl: trackDetails.user.avatar_url,
   };
 
-  await handleDownload(dowwnloadData);
+  await handleDownload(downloadData);
 });

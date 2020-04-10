@@ -1,6 +1,9 @@
 import { Observer, ObserverEvent } from "./observer";
+import { Logger } from "./logger";
+import { sendMessageToBackend } from "./compatibilityStubs";
 
 let observer: Observer | null = null;
+const logger = Logger.create("SoundCloud-Downloader");
 
 const createDownloadButton = () => {
   const button = document.createElement("button");
@@ -13,7 +16,7 @@ const createDownloadButton = () => {
 
 const addDownloadButtonToParent = (parent: Node & ParentNode) => {
   if (window.location.pathname.includes("/sets/")) {
-    console.log("We are looking at a playlist or an album, do not display a download button!");
+    logger.logDebug("We are looking at a playlist or an album, do not display a download button!");
 
     return;
   }
@@ -21,7 +24,7 @@ const addDownloadButtonToParent = (parent: Node & ParentNode) => {
   const downloadButtonExists = parent.querySelector("button.sc-button-download") !== null;
 
   if (downloadButtonExists) {
-    console.warn("Download button already exists");
+    logger.logDebug("Download button already exists");
 
     return;
   }
@@ -30,12 +33,12 @@ const addDownloadButtonToParent = (parent: Node & ParentNode) => {
   button.onclick = async () => {
     button.disabled = true;
 
-    await browser.runtime.sendMessage({ type: "DOWNLOAD" });
+    await sendMessageToBackend({ type: "DOWNLOAD" });
 
     button.disabled = false;
   };
 
-  console.log("Adding download button...");
+  logger.logDebug("Adding download button...", { parent });
 
   parent.appendChild(button);
 };
@@ -87,8 +90,6 @@ const addDownloadButtons = () => {
 };
 
 const handlePageLoaded = () => {
-  console.log("Page Loaded!");
-
   observer = new Observer();
 
   removeBuyLinks();
@@ -98,6 +99,8 @@ const handlePageLoaded = () => {
   addDownloadButtons();
 
   observer.start(document.body);
+
+  logger.logInfo("Attached!");
 };
 
 const documentState = document.readyState;
@@ -109,7 +112,6 @@ if (documentState === "complete" || documentState === "interactive") {
 document.addEventListener("DOMContentLoaded", handlePageLoaded);
 
 window.onbeforeunload = () => {
-  console.log("Page unloading...");
-
   observer?.stop();
+  logger.logDebug("Unattached!");
 };
