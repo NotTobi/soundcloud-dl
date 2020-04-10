@@ -2,6 +2,15 @@ import { Observer, ObserverEvent } from "./observer";
 
 let observer: Observer | null = null;
 
+const createDownloadButton = () => {
+  const button = document.createElement("button");
+  button.className = "sc-button sc-button-download sc-button-medium sc-button-responsive";
+  button.title = "Download";
+  button.innerText = "Download";
+
+  return button;
+};
+
 const addDownloadButtonToParent = (parent: Node & ParentNode) => {
   if (window.location.pathname.includes("/sets/")) {
     console.log("We are looking at a playlist or an album, do not display a download button!");
@@ -17,11 +26,7 @@ const addDownloadButtonToParent = (parent: Node & ParentNode) => {
     return;
   }
 
-  const button = document.createElement("button");
-  button.className = "sc-button sc-button-download sc-button-medium sc-button-responsive";
-  button.title = "Download";
-  button.innerText = "Download";
-
+  const button = createDownloadButton();
   button.onclick = async () => {
     button.disabled = true;
 
@@ -39,15 +44,20 @@ const removeElementFromParent = (element: Element) => {
   element.parentNode.removeChild(element);
 };
 
+const removeElementsMatchingSelectors = (selectors: string) => {
+  const elements = document.querySelectorAll(selectors);
+
+  for (let i = 0; i < elements.length; i++) {
+    const element = elements[i];
+
+    removeElementFromParent(element);
+  }
+};
+
 const removeBuyLinks = () => {
   const selector = "a.sc-buylink";
-  const buyLinks = document.querySelectorAll(selector);
 
-  for (let i = 0; i < buyLinks.length; i++) {
-    const buyLink = buyLinks[i];
-
-    removeElementFromParent(buyLink);
-  }
+  removeElementsMatchingSelectors(selector);
 
   const event: ObserverEvent = {
     selector,
@@ -58,25 +68,15 @@ const removeBuyLinks = () => {
 };
 
 const removeDownloadButtons = () => {
-  const downloadButtons = document.querySelectorAll("button.sc-button-download");
-
-  for (let i = 0; i < downloadButtons.length; i++) {
-    const downloadButton = downloadButtons[i];
-
-    removeElementFromParent(downloadButton);
-  }
+  removeElementsMatchingSelectors("button.sc-button-download");
 };
 
 const addDownloadButtons = () => {
   const selector = ".sc-button-group-medium > .sc-button-like";
 
-  const likeButtons = document.querySelectorAll(selector);
-
-  for (let i = 0; i < likeButtons.length; i++) {
-    const likeButton = likeButtons[i];
-
+  document.querySelectorAll(selector).forEach((likeButton) => {
     addDownloadButtonToParent(likeButton.parentNode);
-  }
+  });
 
   const event: ObserverEvent = {
     selector,
