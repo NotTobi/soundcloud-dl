@@ -280,10 +280,14 @@ function getProgressiveStreamUrl(details: TrackDetails): string | null {
   if (!details || !details.media || !details.media.transcodings || details.media.transcodings.length < 1) return null;
 
   const progressiveStreams = details.media.transcodings.filter(
-    (i) => i.format.protocol === "progressive" && !i.snipped
+    (i) => i.format?.protocol === "progressive" && !i.snipped
   );
 
-  if (progressiveStreams.length < 1) return null;
+  if (progressiveStreams.length < 1) {
+    console.log("No progressive streams found!");
+
+    return null;
+  }
 
   return progressiveStreams[0]?.url;
 }

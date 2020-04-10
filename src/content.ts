@@ -6,7 +6,7 @@ const addDownloadButtonToParent = (parent: Node & ParentNode) => {
   const downloadButtonExists = parent.querySelector("button.sc-button-download") !== null;
 
   if (downloadButtonExists) {
-    console.log("download button exists");
+    console.warn("Download button already exists");
 
     return;
   }
@@ -24,13 +24,13 @@ const addDownloadButtonToParent = (parent: Node & ParentNode) => {
     button.disabled = false;
   };
 
-  console.log("add download button");
+  console.log("Adding download button...");
 
   parent.appendChild(button);
 };
 
 const removeElementFromParent = (element: Element) => {
-  console.log("remove element", element);
+  console.log("Removing element...", element);
 
   element.parentNode.removeChild(element);
 };
@@ -76,18 +76,14 @@ const addDownloadButtons = () => {
 
   const event: ObserverEvent = {
     selector,
-    callback: (node) => {
-      console.log("new like button", node);
-
-      addDownloadButtonToParent(node.parentNode);
-    },
+    callback: (node) => addDownloadButtonToParent(node.parentNode),
   };
 
   observer?.addEvent(event);
 };
 
-const handlePageLoad = () => {
-  console.log("handle page load");
+const handlePageLoaded = () => {
+  console.log("Page Loaded!");
 
   observer = new Observer();
 
@@ -103,13 +99,13 @@ const handlePageLoad = () => {
 const documentState = document.readyState;
 
 if (documentState === "complete" || documentState === "interactive") {
-  setTimeout(handlePageLoad, 0);
+  setTimeout(handlePageLoaded, 0);
 }
 
-document.addEventListener("DOMContentLoaded", handlePageLoad);
+document.addEventListener("DOMContentLoaded", handlePageLoaded);
 
 window.onbeforeunload = () => {
-  console.log("handle page unload");
+  console.log("Page unloading...");
 
   observer?.stop();
 };
