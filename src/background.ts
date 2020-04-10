@@ -1,17 +1,16 @@
+import ID3Writer from "browser-id3-writer";
+
 const apiUrl = "https://api-v2.soundcloud.com";
-let fetchedClientId;
-const trackIds = {};
+let fetchedClientId: string | null = null;
+const trackIds: { [tabId: string]: string } = {};
 
-const browserApi = chrome || browser;
-
-browserApi.webRequest.onBeforeRequest.addListener(
-  async details => {
+browser.webRequest.onBeforeRequest.addListener(
+  (details) => {
     const match = details.url.match(/tracks\/(\d+)/);
 
-    if (match && match.length == 2) {
+    // currently I have not found a better way to do this
+    if (match?.length == 2) {
       const trackId = match[1];
-
-      console.log("Tab", details.tabId, "TrackId", trackId);
 
       trackIds[details.tabId] = trackId;
     }
@@ -29,11 +28,11 @@ browserApi.webRequest.onBeforeRequest.addListener(
   { urls: ["*://api-v2.soundcloud.com/*"] }
 );
 
-function sanitizeFileName(input) {
+function sanitizeFileName(input: string) {
   return input.replace(/[\\\/\:\*\?\"\'\<\>\~\|]+/g, "");
 }
 
-function filterArtists(matchedArtists) {
+function filterArtists(matchedArtists: string) {
   const artistRegex = /^(.+) (featuring|feat|ft|&|w\/|with|,|X)\.? (.+)$/i;
   const filteredArtists = [];
 
@@ -52,8 +51,8 @@ function filterArtists(matchedArtists) {
   return filteredArtists;
 }
 
-function getMetadata(title, username) {
-  let artists = [];
+function getMetadata(title: string, username: string) {
+  let artists: string[] = [];
 
   /* Remove 'Free Download' Text from Title */
   title = title.replace(/\s?\[?\(?(Free Download|Video in Description)\)?\]?.*$/i, "");
@@ -61,7 +60,7 @@ function getMetadata(title, username) {
   /* Filter Leading Artists from Title */
   const titleRegex = /^(.+) - (.+)$/i;
 
-  titleResult = titleRegex.exec(title);
+  const titleResult = titleRegex.exec(title);
 
   if (titleResult && titleResult.length > 0) {
     title = titleResult[2];
@@ -72,21 +71,21 @@ function getMetadata(title, username) {
   }
 
   /* Filter Producer(s) from Title */
+  let producers: string[] = [];
+
   const producerRegexes = [
     /^.+(\s?\(Prod\.?\s?(by)?\s?(.+)\))$/i,
     /^.+(\s?\[Prod\.?\s?(by)?\s?(.+)\])$/i,
-    /^.+(\s?Prod\.?\s?(by)?\s?(.+))$/i
+    /^.+(\s?Prod\.?\s?(by)?\s?(.+))$/i,
   ];
 
-  let producers = [];
-
-  producerRegexes.forEach(function(producerRegex) {
+  producerRegexes.forEach(function (producerRegex) {
     const result = producerRegex.exec(title);
 
     if (result && result.length > 0) {
       title = title.replace(result[1], "");
 
-      // producers = filterArtists(result[3] ? result[3] : result[2])
+      // producers = filterArtists(result[3] ? result[3] : result[2]);
     }
   });
 
@@ -95,10 +94,10 @@ function getMetadata(title, username) {
     const featureRegexes = [
       /^.+(\s?\((featuring|feat|ft|w\/| X )\.?\s?(.+)\))$/i,
       /^.+(\s?\[(featuring|feat|ft|w\/| X )\.?\s?(.+)\])$/i,
-      /^.+(\s?(featuring|feat|ft|w\/| X )\.?\s?(.+))$/i
+      /^.+(\s?(featuring|feat|ft|w\/| X )\.?\s?(.+))$/i,
     ];
 
-    featureRegexes.forEach(function(featureRegex) {
+    featureRegexes.forEach(function (featureRegex) {
       const result = featureRegex.exec(title);
 
       if (result && result.length > 0) {
@@ -113,10 +112,10 @@ function getMetadata(title, username) {
   if (/^.+(Remix|Flip|Bootleg|Mashup|Edit).*$/i.test(title)) {
     const remixRegexes = [
       /^.+\s?\((.+)\s(Remix|Flip|Bootleg|Mashup|Edit)\)$/i,
-      /^.+\s?\[(.+)\s(Remix|Flip|Bootleg|Mashup|Edit)\]$/i
+      /^.+\s?\[(.+)\s(Remix|Flip|Bootleg|Mashup|Edit)\]$/i,
     ];
 
-    remixRegexes.forEach(function(remixRegex) {
+    remixRegexes.forEach(function (remixRegex) {
       const result = remixRegex.exec(title);
 
       if (result && result.length > 0) {
@@ -128,22 +127,30 @@ function getMetadata(title, username) {
   /* Trim Title */
   title = title.trim();
 
-  // toggle add producers to artists
-  if (producers) artists = artists.concat(producers);
+  // add Producers to Artists
+  artists = artists.concat(producers);
 
   /* Trim Artists */
-  artists = artists.map(artist => artist.trim());
+  artists = artists.map((artist) => artist.trim());
 
   /* Distinct Artists */
   artists = [...new Set(artists)];
 
   return {
     title,
-    artists
+    artists,
   };
 }
 
-async function handleDownload(data) {
+interface DownloadData {
+  title: string;
+  username: string;
+  avatarUrl: string;
+  artworkUrl: string;
+  streamUrl: string;
+}
+
+async function handleDownload(data: DownloadData) {
   const { title, username, avatarUrl, streamUrl } = data;
 
   const metadata = getMetadata(title, username);
@@ -170,77 +177,119 @@ async function handleDownload(data) {
   const streamBuffer = await streamResp.arrayBuffer();
 
   const writer = new ID3Writer(streamBuffer);
+
   writer
-    .setFrame("TIT2", metadata.title) // Title
-    .setFrame("TPE1", [artistsString]) // Artists
-    .setFrame("TALB", metadata.title); // Album
-  // .setFrame("COMM", {
-  //   description: "",
-  //   text: "Comment"
-  // });
+    // Title
+    .setFrame("TIT2", metadata.title)
+    // Artists
+    .setFrame("TPE1", [artistsString])
+    // Album
+    .setFrame("TALB", metadata.title)
+    // Comment
+    .setFrame("COMM", {
+      description: "",
+      text: "https://addons.mozilla.org/firefox/addon/soundcloud-dl/",
+    });
 
   if (artworkBuffer) {
+    // Artwork
     writer.setFrame("APIC", {
       type: 3,
       data: artworkBuffer,
-      description: ""
+      description: "",
     });
   }
 
   writer.addTag();
 
-  const newDownload = {
+  const downloadOptions = {
     url: writer.getURL(),
-    filename: sanitizeFileName(`${artistsString} - ${metadata.title}.mp3`)
+    filename: sanitizeFileName(`${artistsString} - ${metadata.title}.mp3`),
   };
 
-  await browserApi.downloads.download(newDownload);
+  await browser.downloads.download(downloadOptions);
 }
 
-async function getTrackDetails(trackId) {
+interface MediaTranscodingFormat {
+  protocol: string;
+}
+
+interface MediaTranscoding {
+  snipped: boolean;
+  url: string;
+  format: MediaTranscodingFormat;
+}
+
+interface Media {
+  transcodings: MediaTranscoding[];
+}
+
+interface User {
+  username: string;
+  avatar_url: string;
+}
+
+interface TrackDetails {
+  kind: string;
+  state: string;
+  title: string;
+  artwork_url: string;
+  user: User;
+  media: Media;
+}
+
+async function getTrackDetails(trackId: string): Promise<TrackDetails | null> {
   try {
     const trackReqUrl = `${apiUrl}/tracks/${trackId}?client_id=${fetchedClientId}`;
 
     const resp = await fetch(trackReqUrl);
-    const data = await resp.json();
+    const data = (await resp.json()) as TrackDetails;
 
     if (!data || data.kind != "track" || data.state != "finished") return null;
 
     return data;
   } catch (error) {
     console.error("Failed to fetch track details from API", error);
+
     return null;
   }
 }
 
-async function getStreamUrlFromProgressiveStream(progressiveStream) {
-  const streamResourceUrl = progressiveStream.url + "?client_id=" + fetchedClientId;
+interface ProgressiveStreamResponse {
+  url: string;
+}
+
+async function getStreamUrlFromProgressiveStreamUrl(progressiveStreamUrl: string): Promise<string | null> {
+  const streamResourceUrl = progressiveStreamUrl + "?client_id=" + fetchedClientId;
 
   try {
     const resp = await fetch(streamResourceUrl);
-    const data = await resp.json();
+    const data = (await resp.json()) as ProgressiveStreamResponse;
 
     if (!data || !data.url) return null;
 
     return data.url;
   } catch (error) {
     console.error("Failed to fetch Stream-URL from API", error);
+
     return null;
   }
 }
 
-function getProgressiveStreamFromTrackDetails(details) {
+function getProgressiveStreamUrl(details: TrackDetails): string | null {
   if (!details || !details.media || !details.media.transcodings || details.media.transcodings.length < 1) return null;
 
-  const progressiveStreams = details.media.transcodings.filter(i => i.format.protocol === "progressive" && !i.snipped);
+  const progressiveStreams = details.media.transcodings.filter(
+    (i) => i.format.protocol === "progressive" && !i.snipped
+  );
 
   if (progressiveStreams.length < 1) return null;
 
-  return progressiveStreams[0];
+  return progressiveStreams[0]?.url;
 }
 
-async function handleMessage(request, sender) {
-  if (sender.id != browserApi.runtime.id && request.type === "DOWNLOAD") return;
+browser.runtime.onMessage.addListener(async (request, sender) => {
+  if (sender.id != browser.runtime.id && request.type === "DOWNLOAD") return;
 
   const trackId = trackIds[sender.tab.id];
 
@@ -252,21 +301,19 @@ async function handleMessage(request, sender) {
 
   if (trackDetails === null) return;
 
-  const progressiveStream = getProgressiveStreamFromTrackDetails(trackDetails);
+  const progressiveStreamUrl = getProgressiveStreamUrl(trackDetails);
 
-  if (progressiveStream === null) return;
+  if (progressiveStreamUrl === null) return;
 
-  const streamUrl = await getStreamUrlFromProgressiveStream(progressiveStream);
+  const streamUrl = await getStreamUrlFromProgressiveStreamUrl(progressiveStreamUrl);
 
-  const dowwnloadData = {
+  const dowwnloadData: DownloadData = {
     streamUrl,
     title: trackDetails.title,
     username: trackDetails.user.username,
     artworkUrl: trackDetails.artwork_url,
-    avatarUrl: trackDetails.user.avatar_url
+    avatarUrl: trackDetails.user.avatar_url,
   };
 
   await handleDownload(dowwnloadData);
-}
-
-browserApi.runtime.onMessage.addListener(handleMessage);
+});

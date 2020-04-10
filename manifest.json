@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "SoundCloud Downloader",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "author": "NotTobi",
   "description": "Adds download buttons for tracks on soundcloud.com",
   "homepage_url": "https://github.com/NotTobi/soundcloud-dl",
@@ -15,10 +15,10 @@
   "content_scripts": [
     {
       "matches": ["*://*.soundcloud.com/*"],
-      "js": ["scripts/jquery.js", "scripts/arrive.js", "index.js"]
+      "js": ["js/content.js"]
     }
   ],
   "background": {
-    "scripts": ["scripts/browser-id3-writer.js", "downloader.js"]
+    "scripts": ["js/background.js"]
   }
 }
