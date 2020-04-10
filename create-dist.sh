@@ -2,4 +2,4 @@
 
 yarn run build || exit 1
 
-zip -r -FS SoundCloud-Downloader.zip dist/*
+(cd dist && zip -r SoundCloud-Downloader.zip .)
