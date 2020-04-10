@@ -17,16 +17,13 @@
     "build": "webpack"
   },
   "devDependencies": {
-    "@types/chrome": "^0.0.104",
     "@types/firefox-webext-browser": "^70.0.1",
-    "@types/jquery": "^3.3.34",
     "ts-loader": "^6.2.2",
     "typescript": "^3.8.3",
     "webpack": "^4.42.1",
     "webpack-cli": "^3.3.11"
   },
   "dependencies": {
-    "browser-id3-writer": "^4.4.0",
-    "jquery": "^3.4.1"
+    "browser-id3-writer": "^4.4.0"
   }
 }

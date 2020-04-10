@@ -1,11 +1,6 @@
-import $ from "jquery";
-import "./arrive";
+import { Observer, ObserverEvent } from "./observer";
 
-declare global {
-  interface JQuery {
-    arrive(className: string, callback: () => void): void;
-  }
-}
+let observer: Observer | null = null;
 
 const addDownloadButtonToParent = (parent: Node & ParentNode) => {
   const downloadButtonExists = parent.querySelector("button.sc-button-download") !== null;
@@ -34,16 +29,28 @@ const addDownloadButtonToParent = (parent: Node & ParentNode) => {
   parent.appendChild(button);
 };
 
+const removeElementFromParent = (element: Element) => {
+  console.log("remove element", element);
+
+  element.parentNode.removeChild(element);
+};
+
 const removeBuyLinks = () => {
-  const buyButtons = document.querySelectorAll("a.sc-buylink");
+  const selector = "a.sc-buylink";
+  const buyLinks = document.querySelectorAll(selector);
 
-  for (let i = 0; i < buyButtons.length; i++) {
-    const buyButton = buyButtons[i];
+  for (let i = 0; i < buyLinks.length; i++) {
+    const buyLink = buyLinks[i];
 
-    console.log("remove buy link");
-
-    buyButton.parentNode.removeChild(buyButton);
+    removeElementFromParent(buyLink);
   }
+
+  const event: ObserverEvent = {
+    selector,
+    callback: (node) => removeElementFromParent(node),
+  };
+
+  observer?.addEvent(event);
 };
 
 const removeDownloadButtons = () => {
@@ -52,24 +59,37 @@ const removeDownloadButtons = () => {
   for (let i = 0; i < downloadButtons.length; i++) {
     const downloadButton = downloadButtons[i];
 
-    console.log("remove download button");
-
-    downloadButton.parentNode.removeChild(downloadButton);
+    removeElementFromParent(downloadButton);
   }
 };
 
 const addDownloadButtons = () => {
-  const likeButtons = document.querySelectorAll(".sc-button-group-medium > .sc-button-like");
+  const selector = ".sc-button-group-medium > .sc-button-like";
+
+  const likeButtons = document.querySelectorAll(selector);
 
   for (let i = 0; i < likeButtons.length; i++) {
     const likeButton = likeButtons[i];
 
     addDownloadButtonToParent(likeButton.parentNode);
   }
+
+  const event: ObserverEvent = {
+    selector,
+    callback: (node) => {
+      console.log("new like button", node);
+
+      addDownloadButtonToParent(node.parentNode);
+    },
+  };
+
+  observer?.addEvent(event);
 };
 
 const handlePageLoad = () => {
   console.log("handle page load");
+
+  observer = new Observer();
 
   removeBuyLinks();
 
@@ -77,15 +97,7 @@ const handlePageLoad = () => {
 
   addDownloadButtons();
 
-  // // remove newly mounted 'buy' buttons
-  // $(document).arrive("a.sc-buylink", function () {
-  //   $(this).remove();
-  // });
-
-  // // add download button to newly mounted button groups
-  // $(document).arrive(".sc-button-group-medium > .sc-button-like", function () {
-  //   addDownloadButtonToParent($(this).parent());
-  // });
+  observer.start(document.body);
 };
 
 const documentState = document.readyState;
@@ -95,3 +107,9 @@ if (documentState === "complete" || documentState === "interactive") {
 }
 
 document.addEventListener("DOMContentLoaded", handlePageLoad);
+
+window.onbeforeunload = () => {
+  console.log("handle page unload");
+
+  observer?.stop();
+};
