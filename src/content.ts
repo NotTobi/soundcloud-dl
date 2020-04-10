@@ -24,7 +24,7 @@ function addDownloadButtonToGroup(group) {
   });
 }
 
-$(function () {
+const handlePageLoad = () => {
   // remove 'buy'' buttons
   $("a.sc-buylink").remove();
 
@@ -42,4 +42,12 @@ $(function () {
   $(document).arrive(".sc-button-group-medium > .sc-button-like", function () {
     addDownloadButtonToGroup($(this).parent());
   });
-});
+};
+
+const documentState = document.readyState;
+
+if (documentState === "complete" || documentState === "interactive") {
+  handlePageLoad();
+}
+
+document.addEventListener("DOMContentLoaded", handlePageLoad);
