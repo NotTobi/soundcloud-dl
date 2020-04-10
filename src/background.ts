@@ -1,11 +1,14 @@
 import ID3Writer from "browser-id3-writer";
+import { SoundCloudApi, TrackDetails } from "./soundcloudApi";
 
 const apiUrl = "https://api-v2.soundcloud.com";
-let fetchedClientId: string | null = null;
+const soundcloudApi = new SoundCloudApi(apiUrl);
 const trackIds: { [tabId: string]: string } = {};
 
 browser.webRequest.onBeforeRequest.addListener(
   (details) => {
+    if (details.tabId < 0) return;
+
     const match = details.url.match(/tracks\/(\d+)/);
 
     // currently I have not found a better way to do this
@@ -13,17 +16,17 @@ browser.webRequest.onBeforeRequest.addListener(
       const trackId = match[1];
 
       trackIds[details.tabId] = trackId;
+
+      console.log("Tab:", details.tabId, "TrackId:", trackId);
     }
 
     const params = new URLSearchParams(details.url);
 
     const clientId = params.get("client_id");
 
-    if (fetchedClientId || !clientId) return;
+    if (!clientId) return;
 
-    console.log("ClientId", clientId);
-
-    fetchedClientId = clientId;
+    soundcloudApi.setClientId(clientId);
   },
   { urls: ["*://api-v2.soundcloud.com/*"] }
 );
@@ -163,18 +166,22 @@ async function handleDownload(data: DownloadData) {
     artworkUrl = avatarUrl;
   }
 
-  let artworkBuffer;
+  let artworkBuffer: ArrayBuffer;
   if (artworkUrl) {
     artworkUrl = artworkUrl.replace("-large.jpg", "-t500x500.jpg");
 
-    const artworkResp = await fetch(artworkUrl);
-    artworkBuffer = await artworkResp.arrayBuffer();
+    artworkBuffer = await soundcloudApi.downloadArtwork(artworkUrl);
   } else {
     console.warn("No Artwork URL could be determined");
   }
 
-  const streamResp = await fetch(streamUrl);
-  const streamBuffer = await streamResp.arrayBuffer();
+  const streamBuffer = await soundcloudApi.downloadStream(streamUrl);
+
+  if (!streamBuffer) {
+    console.error("Failed to download stream");
+
+    return;
+  }
 
   const writer = new ID3Writer(streamBuffer);
 
@@ -210,72 +217,6 @@ async function handleDownload(data: DownloadData) {
   await browser.downloads.download(downloadOptions);
 }
 
-interface MediaTranscodingFormat {
-  protocol: string;
-}
-
-interface MediaTranscoding {
-  snipped: boolean;
-  url: string;
-  format: MediaTranscodingFormat;
-}
-
-interface Media {
-  transcodings: MediaTranscoding[];
-}
-
-interface User {
-  username: string;
-  avatar_url: string;
-}
-
-interface TrackDetails {
-  kind: string;
-  state: string;
-  title: string;
-  artwork_url: string;
-  user: User;
-  media: Media;
-}
-
-async function getTrackDetails(trackId: string): Promise<TrackDetails | null> {
-  try {
-    const trackReqUrl = `${apiUrl}/tracks/${trackId}?client_id=${fetchedClientId}`;
-
-    const resp = await fetch(trackReqUrl);
-    const data = (await resp.json()) as TrackDetails;
-
-    if (!data || data.kind != "track" || data.state != "finished") return null;
-
-    return data;
-  } catch (error) {
-    console.error("Failed to fetch track details from API", error);
-
-    return null;
-  }
-}
-
-interface ProgressiveStreamResponse {
-  url: string;
-}
-
-async function getStreamUrlFromProgressiveStreamUrl(progressiveStreamUrl: string): Promise<string | null> {
-  const streamResourceUrl = progressiveStreamUrl + "?client_id=" + fetchedClientId;
-
-  try {
-    const resp = await fetch(streamResourceUrl);
-    const data = (await resp.json()) as ProgressiveStreamResponse;
-
-    if (!data || !data.url) return null;
-
-    return data.url;
-  } catch (error) {
-    console.error("Failed to fetch Stream-URL from API", error);
-
-    return null;
-  }
-}
-
 function getProgressiveStreamUrl(details: TrackDetails): string | null {
   if (!details || !details.media || !details.media.transcodings || details.media.transcodings.length < 1) return null;
 
@@ -301,15 +242,17 @@ browser.runtime.onMessage.addListener(async (request, sender) => {
 
   console.log("Downloading...", trackId);
 
-  const trackDetails = await getTrackDetails(trackId);
+  const trackDetails = await soundcloudApi.getTrack(trackId);
 
-  if (trackDetails === null) return;
+  if (!trackDetails) return;
 
   const progressiveStreamUrl = getProgressiveStreamUrl(trackDetails);
 
-  if (progressiveStreamUrl === null) return;
+  if (!progressiveStreamUrl) return;
 
-  const streamUrl = await getStreamUrlFromProgressiveStreamUrl(progressiveStreamUrl);
+  const streamUrl = await soundcloudApi.getStreamUrl(progressiveStreamUrl);
+
+  if (!streamUrl) return;
 
   const dowwnloadData: DownloadData = {
     streamUrl,
