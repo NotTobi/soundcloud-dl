@@ -7,58 +7,91 @@ declare global {
   }
 }
 
-function addDownloadButtonToGroup(group) {
-  if (group.find(".sc-button-download").length > 0) return;
+const addDownloadButtonToParent = (parent: Node & ParentNode) => {
+  const downloadButtonExists = parent.querySelector("button.sc-button-download") !== null;
 
-  const buttonHtml = `
-          <button 
-              class='sc-button sc-button-download sc-button-medium sc-button-responsive'
-              title='Download'>
-                  Download
-          </button>`;
+  if (downloadButtonExists) {
+    console.log("download button exists");
 
-  const button = $(buttonHtml).appendTo(group);
+    return;
+  }
 
-  button.on("click", async () => {
+  const button = document.createElement("button");
+  button.className = "sc-button sc-button-download sc-button-medium sc-button-responsive";
+  button.title = "Download";
+  button.innerText = "Download";
+
+  button.onclick = async () => {
+    button.disabled = true;
+
     await browser.runtime.sendMessage({ type: "DOWNLOAD" });
-  });
-}
 
-const removeBuyButtons = () => {
+    button.disabled = false;
+  };
+
+  console.log("add download button");
+
+  parent.appendChild(button);
+};
+
+const removeBuyLinks = () => {
   const buyButtons = document.querySelectorAll("a.sc-buylink");
 
   for (let i = 0; i < buyButtons.length; i++) {
-    console.log("remove buy button");
-
     const buyButton = buyButtons[i];
+
+    console.log("remove buy link");
 
     buyButton.parentNode.removeChild(buyButton);
   }
 };
 
+const removeDownloadButtons = () => {
+  const downloadButtons = document.querySelectorAll("button.sc-button-download");
+
+  for (let i = 0; i < downloadButtons.length; i++) {
+    const downloadButton = downloadButtons[i];
+
+    console.log("remove download button");
+
+    downloadButton.parentNode.removeChild(downloadButton);
+  }
+};
+
+const addDownloadButtons = () => {
+  const likeButtons = document.querySelectorAll(".sc-button-group-medium > .sc-button-like");
+
+  for (let i = 0; i < likeButtons.length; i++) {
+    const likeButton = likeButtons[i];
+
+    addDownloadButtonToParent(likeButton.parentNode);
+  }
+};
+
 const handlePageLoad = () => {
-  removeBuyButtons();
+  console.log("handle page load");
 
-  // add download button to button group
-  $(".sc-button-group-medium > .sc-button-like").each(function () {
-    addDownloadButtonToGroup($(this).parent());
-  });
+  removeBuyLinks();
 
-  // remove newly mounted 'buy' buttons
-  $(document).arrive("a.sc-buylink", function () {
-    $(this).remove();
-  });
+  removeDownloadButtons();
 
-  // add download button to newly mounted button groups
-  $(document).arrive(".sc-button-group-medium > .sc-button-like", function () {
-    addDownloadButtonToGroup($(this).parent());
-  });
+  addDownloadButtons();
+
+  // // remove newly mounted 'buy' buttons
+  // $(document).arrive("a.sc-buylink", function () {
+  //   $(this).remove();
+  // });
+
+  // // add download button to newly mounted button groups
+  // $(document).arrive(".sc-button-group-medium > .sc-button-like", function () {
+  //   addDownloadButtonToParent($(this).parent());
+  // });
 };
 
 const documentState = document.readyState;
 
 if (documentState === "complete" || documentState === "interactive") {
-  handlePageLoad();
+  setTimeout(handlePageLoad, 0);
 }
 
 document.addEventListener("DOMContentLoaded", handlePageLoad);
