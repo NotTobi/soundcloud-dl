@@ -3,15 +3,15 @@ Download this extension from the [Firefox Add-Ons page](https://addons.mozilla.o
 ## Missing features
 
 - When downloading high quality .m4a audio files, the Artwork is not set
-- Download buttons in more locations, than just on the track page
+- Add download buttons in more locations around the page
 - Download playlists/albums/favorites
 - Better error handling -> also displaying errors to the user
 
-If you want to help implement them, go right ahead! :)
+If you want to help implement one of those features, go right ahead! :)
 
 ## Building the addon
 
-## Operating system used
+### Operating system used
 
 Linux 5.5.15-1-MANJARO
 
