@@ -11,6 +11,7 @@ const braceCombos = [
 const titleSeperators = MetadataExtractor.titleSeperators;
 const featureSeperators = MetadataExtractor.featureSeperators;
 const combiningFeatureSeperators = MetadataExtractor.combiningFeatureSeperators;
+const producerIndicators = MetadataExtractor.producerIndicators;
 
 test("title", () => {
   const title = "title";
@@ -85,6 +86,54 @@ test.each(featureSeperators)("artist1 - title %sartist2", (seperator) => {
 });
 
 braceCombos.forEach(([opening, closing]) => {
+  producerIndicators.forEach((producerIndicator) => {
+    test(`artist1 - title ${opening}${producerIndicator}artist2${closing}`, () => {
+      const title = `artist1 - title ${opening}${producerIndicator}artist2${closing}`;
+      const extractor = createExtractor(title);
+
+      const correctArtists: Artist[] = [
+        {
+          name: "artist1",
+          type: ArtistType.Main,
+        },
+        {
+          name: "artist2",
+          type: ArtistType.Producer,
+        },
+      ];
+      const correctTitle = "title";
+
+      expect(extractor.getArtists()).toEqual(correctArtists);
+      expect(extractor.getTitle()).toBe(correctTitle);
+    });
+
+    combiningFeatureSeperators.forEach((combiningSeperator) => {
+      test(`artist1 - title ${opening}${producerIndicator}artist2${combiningSeperator}artist3${closing}`, () => {
+        const title = `artist1 - title ${opening}${producerIndicator}artist2${combiningSeperator}artist3${closing}`;
+        const extractor = createExtractor(title);
+
+        const correctArtists: Artist[] = [
+          {
+            name: "artist1",
+            type: ArtistType.Main,
+          },
+          {
+            name: "artist2",
+            type: ArtistType.Producer,
+          },
+          {
+            name: "artist3",
+            type: ArtistType.Producer,
+          },
+        ];
+        const correctTitle = "title";
+
+        expect(extractor.getArtists()).toEqual(correctArtists);
+        expect(extractor.getTitle()).toBe(correctTitle);
+      });
+    });
+  });
+
   featureSeperators.forEach((seperator) => {
     test(`artist1 - title ${opening}${seperator}artist2${closing}`, () => {
       const title = `artist1 - title ${opening}${seperator}artist2${closing}`;
