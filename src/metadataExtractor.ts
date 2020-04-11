@@ -1,43 +1,5 @@
 import escapeStringRegexp from "escape-string-regexp";
 
-//   function filterArtists(matchedArtists: string) {
-//     const artistRegex = /^(.+) (featuring|feat|ft|&|w\/|with|,|X)\.? (.+)$/i;
-//     const filteredArtists = [];
-
-//     while (true) {
-//       const artistResult = artistRegex.exec(matchedArtists);
-
-//       if (artistResult && artistResult.length > 0) {
-//         filteredArtists.push(artistResult[1]);
-//         matchedArtists = artistResult[3];
-//       } else {
-//         filteredArtists.push(matchedArtists);
-//         break;
-//       }
-//     }
-
-//     return filteredArtists;
-//   }
-
-//   function getMetadata(title: string, username: string) {
-//     let artists: string[] = [];
-
-//     /* Remove 'Free Download' Text from Title */
-//     title = title.replace(/\s?\[?\(?(Free Download|Video in Description)\)?\]?.*$/i, "");
-
-//     /* Filter Leading Artists from Title */
-//     const titleRegex = /^(.+) - (.+)$/i;
-
-//     const titleResult = titleRegex.exec(title);
-
-//     if (titleResult && titleResult.length > 0) {
-//       title = titleResult[2];
-
-//       artists = filterArtists(titleResult[1]);
-//     } else {
-//       artists.push(username);
-//     }
-
 //     /* Filter Producer(s) from Title */
 //     let producers: string[] = [];
 
@@ -88,24 +50,7 @@ import escapeStringRegexp from "escape-string-regexp";
 //         }
 //       });
 //     }
-
-//     /* Trim Title */
-//     title = title.trim();
-
-//     // add Producers to Artists
-//     artists = artists.concat(producers);
-
-//     /* Trim Artists */
-//     artists = artists.map((artist) => artist.trim());
-
-//     /* Distinct Artists */
-//     artists = [...new Set(artists)];
-
-//     return {
-//       title,
-//       artists,
-//     };
-//   }
+// }
 
 export enum ArtistType {
   Main,
@@ -114,9 +59,18 @@ export enum ArtistType {
   Producer,
 }
 
+export enum RemixType {
+  Remix,
+  Flip,
+  Bootleg,
+  Mashup,
+  Edit,
+}
+
 export interface Artist {
   name: string;
   type: ArtistType;
+  remixType?: RemixType;
 }
 
 interface TitleSplit {
@@ -124,11 +78,17 @@ interface TitleSplit {
   title: string;
 }
 
+interface RemixTitleSplit {
+  artists: Artist[];
+  title: string;
+}
+
 export class MetadataExtractor {
   private readonly titleSeperators = ["-", "–", "—", "~"];
   private readonly featureSeperators = [",", "&", "featuring", "feat.", "feat", "ft.", "ft", "w/", " x "];
-  private readonly remixSeperators = ["remix", "flip", "bootleg", "mashup", "edit"];
-  private readonly promotions = ["free download", "video in description"];
+  private readonly remixIndicators = ["remix", "flip", "bootleg", "mashup", "edit"];
+  private readonly producerIndicators = ["prod", "prod.", "prod by", "prod. by"];
+  private readonly promotions = ["free", "free download", "video in description"];
 
   constructor(private title: string, private username: string) {}
 
@@ -138,24 +98,54 @@ export class MetadataExtractor {
     const titleSplit = this.splitByTitleSeperators(this.title, true);
 
     artists = artists.concat(
-      titleSplit.artistNames.map<Artist>((name) => ({
+      titleSplit.artistNames.map<Artist>((name, index) => ({
+        name: this.sanitizeArtistName(name),
+        type: index === 0 ? ArtistType.Main : ArtistType.Feature,
+      }))
+    );
+
+    const featureSplit = this.splitByFeatures(titleSplit.title, true);
+
+    artists = artists.concat(
+      featureSplit.artistNames.map<Artist>((name) => ({
         name: this.sanitizeArtistName(name),
         type: ArtistType.Feature,
       }))
     );
 
-    let title = titleSplit.title;
+    const producerSplit = this.splitByProducer(featureSplit.title, true);
 
-    // todo check for remixes or producers
+    artists = artists.concat(
+      producerSplit.artistNames.map<Artist>((name) => ({
+        name: this.sanitizeArtistName(name),
+        type: ArtistType.Producer,
+      }))
+    );
 
-    if (artists.length < 1) {
-      artists.push({
+    const remixSplit = this.splitByRemix(producerSplit.title, true);
+
+    artists = artists.concat(remixSplit.artists);
+
+    const hasMainArtist = artists.some((i) => i.type === ArtistType.Main);
+
+    if (!hasMainArtist) {
+      const user = {
         name: this.sanitizeArtistName(this.username),
         type: ArtistType.Main,
-      });
-    } else {
-      artists[0].type = ArtistType.Main;
+      };
+
+      if (artists.length > 0) {
+        artists = [user, ...artists];
+      } else {
+        artists.push(user);
+      }
     }
+
+    // Distinct (not sure if this works with objects)
+    artists = [...new Set(artists)];
+
+    // sort by importance
+    artists.sort((i) => i.type);
 
     return artists;
   }
@@ -163,9 +153,13 @@ export class MetadataExtractor {
   getTitle(): string {
     let title = this.title;
 
-    const titleSplit = this.splitByTitleSeperators(title, false);
+    title = this.splitByTitleSeperators(title, false).title;
 
-    title = titleSplit.title;
+    title = this.splitByFeatures(title, false).title;
+
+    title = this.splitByProducer(title, false).title;
+
+    title = this.splitByRemix(title, false).title;
 
     return this.sanitizeTitle(title);
   }
@@ -173,7 +167,7 @@ export class MetadataExtractor {
   private splitByTitleSeperators(title: string, extractArtists: boolean): TitleSplit {
     let artistNames: string[] = [];
 
-    if (this.includesSeperators(title, this.titleSeperators)) {
+    if (this.includes(title, this.titleSeperators)) {
       const seperators = this.escapeRegexArray(this.titleSeperators);
       const regex = new RegExp(`^((.+)\\s[${seperators}]\\s)(.+)$`);
 
@@ -196,9 +190,59 @@ export class MetadataExtractor {
     };
   }
 
+  private splitByFeatures(title: string, extractArtists: boolean): TitleSplit {
+    let artistNames: string[] = [];
+
+    if (this.includes(title, this.featureSeperators)) {
+      const seperators = this.escapeRegexArray(this.featureSeperators).join("|");
+      const regex = new RegExp(`\\[?\\(?(${seperators})([^\\[\\]\\(\\)]+)\\[?\\]?\\(?\\)?`);
+
+      const result = regex.exec(title);
+
+      if (result && result.length > 0) {
+        const [featureSection, _, artistsString] = result;
+
+        if (extractArtists) {
+          artistNames = this.getArtistNames(artistsString);
+        }
+
+        title = title.replace(featureSection, "");
+      }
+    }
+
+    return {
+      artistNames,
+      title,
+    };
+  }
+
+  private splitByProducer(title: string, extractArtists: boolean): TitleSplit {
+    let artistNames: string[] = [];
+
+    if (this.includes(title, this.producerIndicators)) {
+    }
+
+    return {
+      artistNames,
+      title,
+    };
+  }
+
+  private splitByRemix(title: string, extractArtists: boolean): RemixTitleSplit {
+    let artists: Artist[] = [];
+
+    if (this.includes(title, this.remixIndicators)) {
+    }
+
+    return {
+      artists,
+      title,
+    };
+  }
+
   private getArtistNames(input: string): string[] {
     const seperators = this.escapeRegexArray(this.featureSeperators).join("|");
-    const regex = new RegExp(`(.+)\\s?(${seperators})\\s?(.+)`);
+    const regex = new RegExp(`(.+)\\s?(${seperators})\\s?(.+)`, "i");
 
     const names = [];
 
@@ -225,7 +269,7 @@ export class MetadataExtractor {
     return input.trim();
   }
 
-  private includesSeperators(input: string, seperators: string[]) {
+  private includes(input: string, seperators: string[]) {
     return seperators.some((seperator) => input.includes(seperator));
   }
 

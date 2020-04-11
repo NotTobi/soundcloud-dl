@@ -3,6 +3,8 @@
 {
     yarn install
 
+    yarn test
+
     yarn run build
 } || exit 1
 

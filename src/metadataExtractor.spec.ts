@@ -303,3 +303,345 @@ test("remove multiple artists from title", () => {
 
   expect(extractor.getTitle()).toEqual(correctTitle);
 });
+
+test("feature in title without main artist", () => {
+  const username = "username";
+  const title = "title ft. artist2";
+
+  const extractor = createExtractor(title, username);
+
+  const correctArtists: Artist[] = [
+    {
+      name: "username",
+      type: ArtistType.Main,
+    },
+    {
+      name: "artist2",
+      type: ArtistType.Feature,
+    },
+  ];
+
+  expect(extractor.getArtists()).toEqual(correctArtists);
+});
+
+test("feature in title without main artist", () => {
+  const username = "username";
+  const title = "title (w/ artist2)";
+
+  const extractor = createExtractor(title, username);
+
+  const correctArtists: Artist[] = [
+    {
+      name: "username",
+      type: ArtistType.Main,
+    },
+    {
+      name: "artist2",
+      type: ArtistType.Feature,
+    },
+  ];
+
+  expect(extractor.getArtists()).toEqual(correctArtists);
+});
+
+test("feature in title without main artist", () => {
+  const username = "username";
+  const title = "title [featuring artist2]";
+
+  const extractor = createExtractor(title, username);
+
+  const correctArtists: Artist[] = [
+    {
+      name: "username",
+      type: ArtistType.Main,
+    },
+    {
+      name: "artist2",
+      type: ArtistType.Feature,
+    },
+  ];
+
+  expect(extractor.getArtists()).toEqual(correctArtists);
+});
+
+test("feature in title", () => {
+  const username = "username";
+  const title = "artist1 - title [featuring artist2]";
+
+  const extractor = createExtractor(title, username);
+
+  const correctArtists: Artist[] = [
+    {
+      name: "artist1",
+      type: ArtistType.Main,
+    },
+    {
+      name: "artist2",
+      type: ArtistType.Feature,
+    },
+  ];
+
+  expect(extractor.getArtists()).toEqual(correctArtists);
+});
+
+test("feature in title with multiple main artists", () => {
+  const username = "username";
+  const title = "artist1, artist2 - title [featuring artist3]";
+
+  const extractor = createExtractor(title, username);
+
+  const correctArtists: Artist[] = [
+    {
+      name: "artist1",
+      type: ArtistType.Main,
+    },
+    {
+      name: "artist2",
+      type: ArtistType.Feature,
+    },
+    {
+      name: "artist3",
+      type: ArtistType.Feature,
+    },
+  ];
+
+  expect(extractor.getArtists()).toEqual(correctArtists);
+});
+
+test("multiple features in title without main artist", () => {
+  const username = "username";
+  const title = "title ft. artist2 & artist3";
+
+  const extractor = createExtractor(title, username);
+
+  const correctArtists: Artist[] = [
+    {
+      name: "username",
+      type: ArtistType.Main,
+    },
+    {
+      name: "artist2",
+      type: ArtistType.Feature,
+    },
+    {
+      name: "artist3",
+      type: ArtistType.Feature,
+    },
+  ];
+
+  expect(extractor.getArtists()).toEqual(correctArtists);
+});
+
+test("multiple features in title without main artist", () => {
+  const username = "username";
+  const title = "title (w/ artist2, artist3)";
+
+  const extractor = createExtractor(title, username);
+
+  const correctArtists: Artist[] = [
+    {
+      name: "username",
+      type: ArtistType.Main,
+    },
+    {
+      name: "artist2",
+      type: ArtistType.Feature,
+    },
+    {
+      name: "artist3",
+      type: ArtistType.Feature,
+    },
+  ];
+
+  expect(extractor.getArtists()).toEqual(correctArtists);
+});
+
+test("multiple features in title without main artist", () => {
+  const username = "username";
+  const title = "title [featuring artist2 w/ artist3]";
+
+  const extractor = createExtractor(title, username);
+
+  const correctArtists: Artist[] = [
+    {
+      name: "username",
+      type: ArtistType.Main,
+    },
+    {
+      name: "artist2",
+      type: ArtistType.Feature,
+    },
+    {
+      name: "artist3",
+      type: ArtistType.Feature,
+    },
+  ];
+
+  expect(extractor.getArtists()).toEqual(correctArtists);
+});
+
+test("feature in title", () => {
+  const username = "username";
+  const title = "artist1 - title [featuring artist2 & artist3]";
+
+  const extractor = createExtractor(title, username);
+
+  const correctArtists: Artist[] = [
+    {
+      name: "artist1",
+      type: ArtistType.Main,
+    },
+    {
+      name: "artist2",
+      type: ArtistType.Feature,
+    },
+    {
+      name: "artist3",
+      type: ArtistType.Feature,
+    },
+  ];
+
+  expect(extractor.getArtists()).toEqual(correctArtists);
+});
+
+test("feature in title with multiple main artists", () => {
+  const username = "username";
+  const title = "artist1, artist2 - title [featuring artist3 w/ artist4]";
+
+  const extractor = createExtractor(title, username);
+
+  const correctArtists: Artist[] = [
+    {
+      name: "artist1",
+      type: ArtistType.Main,
+    },
+    {
+      name: "artist2",
+      type: ArtistType.Feature,
+    },
+    {
+      name: "artist3",
+      type: ArtistType.Feature,
+    },
+    {
+      name: "artist4",
+      type: ArtistType.Feature,
+    },
+  ];
+
+  expect(extractor.getArtists()).toEqual(correctArtists);
+});
+
+test("remove feature from title", () => {
+  const username = "username";
+  const title = "title ft. artist2";
+
+  const extractor = createExtractor(title, username);
+
+  const correctTitle = "title";
+
+  expect(extractor.getTitle()).toEqual(correctTitle);
+});
+
+test("remove feature from title with [", () => {
+  const username = "username";
+  const title = "title [featuring artist2]";
+
+  const extractor = createExtractor(title, username);
+
+  const correctTitle = "title";
+
+  expect(extractor.getTitle()).toEqual(correctTitle);
+});
+
+test("remove feature from title with (", () => {
+  const username = "username";
+  const title = "artist1 - title (w/ artist2)";
+
+  const extractor = createExtractor(title, username);
+
+  const correctTitle = "title";
+
+  expect(extractor.getTitle()).toEqual(correctTitle);
+});
+
+test("remove multiple features from title", () => {
+  const username = "username";
+  const title = "artist1 - title w/ artist2 & artist3";
+
+  const extractor = createExtractor(title, username);
+
+  const correctTitle = "title";
+
+  expect(extractor.getTitle()).toEqual(correctTitle);
+});
+
+test("remove multiple features from title with [", () => {
+  const username = "username";
+  const title = "artist1 - title [w/ artist2 & artist3]";
+
+  const extractor = createExtractor(title, username);
+
+  const correctTitle = "title";
+
+  expect(extractor.getTitle()).toEqual(correctTitle);
+});
+
+test("remove multiple features from title with (", () => {
+  const username = "username";
+  const title = "artist1 - title (w/ artist2 & artist3)";
+
+  const extractor = createExtractor(title, username);
+
+  const correctTitle = "title";
+
+  expect(extractor.getTitle()).toEqual(correctTitle);
+});
+
+// test("remix with artist in title", () => {
+//   const username = "username";
+//   const title = "artist1 - title (artist2 remix)";
+
+//   const extractor = createExtractor(title, username);
+
+//   const correctArtists: Artist[] = [
+//     {
+//       name: "artist1",
+//       type: ArtistType.Main,
+//     },
+//     {
+//       name: "artist2",
+//       type: ArtistType.Remixer,
+//     },
+//   ];
+
+//   expect(extractor.getArtists()).toEqual(correctArtists);
+
+//   const correctTitle = "title (artist Remix)";
+
+//   expect(extractor.getTitle()).toEqual(correctTitle);
+// });
+
+// test("remix with no artist in title", () => {
+//   const username = "username";
+//   const title = "title (artist remix)";
+
+//   const extractor = createExtractor(title, username);
+
+//   const correctArtists: Artist[] = [
+//     {
+//       name: "username",
+//       type: ArtistType.Main,
+//     },
+//     {
+//       name: "artist1",
+//       type: ArtistType.Remixer,
+//     },
+//   ];
+
+//   expect(extractor.getArtists()).toEqual(correctArtists);
+
+//   const correctTitle = "title (artist Remix)";
+
+//   expect(extractor.getTitle()).toEqual(correctTitle);
+// });
