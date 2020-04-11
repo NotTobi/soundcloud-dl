@@ -84,11 +84,12 @@ interface RemixTitleSplit {
 }
 
 export class MetadataExtractor {
-  private readonly titleSeperators = ["-", "–", "—", "~"];
-  private readonly featureSeperators = [",", "&", "featuring", "feat.", "feat", "ft.", "ft", "w/", " x "];
-  private readonly remixIndicators = ["remix", "flip", "bootleg", "mashup", "edit"];
-  private readonly producerIndicators = ["prod", "prod.", "prod by", "prod. by"];
-  private readonly promotions = ["free", "free download", "video in description"];
+  static readonly titleSeperators = ["-", "–", "—", "~"];
+  static readonly featureSeperators = ["featuring", "feat.", "feat", "ft.", "ft", "w/"];
+  static readonly combiningFeatureSeperators = [...MetadataExtractor.featureSeperators, ",", "&", " x "];
+  static readonly remixIndicators = ["remix", "flip", "bootleg", "mashup", "edit"];
+  static readonly producerIndicators = ["prod. by", "prod by", "prod.", "prod"];
+  static readonly promotions = ["free", "free download", "video in description"];
 
   constructor(private title: string, private username: string) {}
 
@@ -104,21 +105,21 @@ export class MetadataExtractor {
       }))
     );
 
-    const featureSplit = this.splitByFeatures(titleSplit.title, true);
-
-    artists = artists.concat(
-      featureSplit.artistNames.map<Artist>((name) => ({
-        name: this.sanitizeArtistName(name),
-        type: ArtistType.Feature,
-      }))
-    );
-
-    const producerSplit = this.splitByProducer(featureSplit.title, true);
+    const producerSplit = this.splitByProducer(titleSplit.title, true);
 
     artists = artists.concat(
       producerSplit.artistNames.map<Artist>((name) => ({
         name: this.sanitizeArtistName(name),
         type: ArtistType.Producer,
+      }))
+    );
+
+    const featureSplit = this.splitByFeatures(producerSplit.title, true);
+
+    artists = artists.concat(
+      featureSplit.artistNames.map<Artist>((name) => ({
+        name: this.sanitizeArtistName(name),
+        type: ArtistType.Feature,
       }))
     );
 
@@ -167,8 +168,8 @@ export class MetadataExtractor {
   private splitByTitleSeperators(title: string, extractArtists: boolean): TitleSplit {
     let artistNames: string[] = [];
 
-    if (this.includes(title, this.titleSeperators)) {
-      const seperators = this.escapeRegexArray(this.titleSeperators);
+    if (this.includes(title, MetadataExtractor.titleSeperators)) {
+      const seperators = this.escapeRegexArray(MetadataExtractor.titleSeperators);
       const regex = new RegExp(`^((.+)\\s[${seperators}]\\s)(.+)$`);
 
       const result = regex.exec(title);
@@ -193,8 +194,8 @@ export class MetadataExtractor {
   private splitByFeatures(title: string, extractArtists: boolean): TitleSplit {
     let artistNames: string[] = [];
 
-    if (this.includes(title, this.featureSeperators)) {
-      const seperators = this.escapeRegexArray(this.featureSeperators).join("|");
+    if (this.includes(title, MetadataExtractor.featureSeperators)) {
+      const seperators = this.escapeRegexArray(MetadataExtractor.featureSeperators).join("|");
       const regex = new RegExp(`\\[?\\(?(${seperators})([^\\[\\]\\(\\)]+)\\[?\\]?\\(?\\)?`);
 
       const result = regex.exec(title);
@@ -219,7 +220,21 @@ export class MetadataExtractor {
   private splitByProducer(title: string, extractArtists: boolean): TitleSplit {
     let artistNames: string[] = [];
 
-    if (this.includes(title, this.producerIndicators)) {
+    if (this.includes(title, MetadataExtractor.producerIndicators)) {
+      const seperators = this.escapeRegexArray(MetadataExtractor.producerIndicators).join("|");
+      const regex = new RegExp(`\\[?\\(?(${seperators})([^\\[\\]\\(\\)]+)\\[?\\]?\\(?\\)?`);
+
+      const result = regex.exec(title);
+
+      if (result && result.length > 0) {
+        const [producerSection, _, artistsString] = result;
+
+        if (extractArtists) {
+          artistNames = this.getArtistNames(artistsString);
+        }
+
+        title = title.replace(producerSection, "");
+      }
     }
 
     return {
@@ -231,7 +246,7 @@ export class MetadataExtractor {
   private splitByRemix(title: string, extractArtists: boolean): RemixTitleSplit {
     let artists: Artist[] = [];
 
-    if (this.includes(title, this.remixIndicators)) {
+    if (this.includes(title, MetadataExtractor.remixIndicators)) {
     }
 
     return {
@@ -241,7 +256,7 @@ export class MetadataExtractor {
   }
 
   private getArtistNames(input: string): string[] {
-    const seperators = this.escapeRegexArray(this.featureSeperators).join("|");
+    const seperators = this.escapeRegexArray(MetadataExtractor.combiningFeatureSeperators).join("|");
     const regex = new RegExp(`(.+)\\s?(${seperators})\\s?(.+)`, "i");
 
     const names = [];
