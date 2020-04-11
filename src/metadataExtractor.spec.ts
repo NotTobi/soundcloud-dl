@@ -1,4 +1,4 @@
-import { MetadataExtractor, Artist, ArtistType } from "./metadataExtractor";
+import { MetadataExtractor, Artist, ArtistType, getRemixTypeFromString } from "./metadataExtractor";
 
 const createExtractor = (title: string) => new MetadataExtractor(title, "username");
 
@@ -12,6 +12,7 @@ const titleSeperators = MetadataExtractor.titleSeperators;
 const featureSeperators = MetadataExtractor.featureSeperators;
 const combiningFeatureSeperators = MetadataExtractor.combiningFeatureSeperators;
 const producerIndicators = MetadataExtractor.producerIndicators;
+const remixIndicators = MetadataExtractor.remixIndicators;
 
 test("title", () => {
   const title = "title";
@@ -181,4 +182,59 @@ braceCombos.forEach(([opening, closing]) => {
       });
     });
   });
+
+  if (opening === "") return;
+
+  remixIndicators.forEach((remixIndicator) => {
+    test(`artist1 - title ${opening}artist2${remixIndicator}${closing}`, () => {
+      const title = `artist1 - title ${opening}artist2${remixIndicator}${closing}`;
+      const extractor = createExtractor(title);
+
+      const correctArtists: Artist[] = [
+        {
+          name: "artist1",
+          type: ArtistType.Main,
+        },
+        {
+          name: "artist2",
+          type: ArtistType.Remixer,
+          remixType: getRemixTypeFromString(remixIndicator),
+        },
+      ];
+      const correctTitle = "title";
+
+      expect(extractor.getArtists()).toEqual(correctArtists);
+      expect(extractor.getTitle()).toBe(correctTitle);
+    });
+
+    combiningFeatureSeperators.forEach((combiningSeperator) => {
+      test(`artist1 - title ${opening}artist2${combiningSeperator}artist3${remixIndicator}${closing}`, () => {
+        const title = `artist1 - title ${opening}artist2${combiningSeperator}artist3${remixIndicator}${closing}`;
+        const extractor = createExtractor(title);
+
+        const correctArtists: Artist[] = [
+          {
+            name: "artist1",
+            type: ArtistType.Main,
+          },
+          {
+            name: "artist2",
+            type: ArtistType.Remixer,
+            remixType: getRemixTypeFromString(remixIndicator),
+          },
+          {
+            name: "artist3",
+            type: ArtistType.Remixer,
+            remixType: getRemixTypeFromString(remixIndicator),
+          },
+        ];
+        const correctTitle = "title";
+
+        expect(extractor.getArtists()).toEqual(correctArtists);
+        expect(extractor.getTitle()).toBe(correctTitle);
+      });
+    });
+  });
 });
+
+// todo: test real-world examples

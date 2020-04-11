@@ -2,7 +2,7 @@ import ID3Writer from "browser-id3-writer";
 import { SoundCloudApi, TrackDetails } from "./soundcloudApi";
 import { Logger } from "./logger";
 import { onBeforeSendHeaders, onBeforeRequest, downloadToFile, onMessageFromTab } from "./compatibilityStubs";
-import { MetadataExtractor, ArtistType } from "./metadataExtractor";
+import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
 
 const apiUrl = "https://api-v2.soundcloud.com";
 const soundcloudApi = new SoundCloudApi(apiUrl);
@@ -27,11 +27,19 @@ async function handleDownload(data: DownloadData) {
   const { title, username, avatarUrl, streamUrl } = data;
 
   const extractor = new MetadataExtractor(title, username);
-  const artistsString = extractor
-    .getArtists()
-    .map((i) => i.name)
-    .join(", ");
-  const titleString = extractor.getTitle();
+  const artists = extractor.getArtists();
+  const artistsString = artists.map((i) => i.name).join(", ");
+  let titleString = extractor.getTitle();
+
+  const remixers = artists.filter((i) => i.type === ArtistType.Remixer);
+
+  if (remixers.length > 0) {
+    const remixerNames = remixers.map((i) => i.name).join(" & ");
+
+    const remixTypeString = RemixType[remixers[0].remixType || RemixType.Remix].toString();
+
+    titleString += ` (${remixerNames} ${remixTypeString})`;
+  }
 
   let artworkUrl = data.artworkUrl;
 
