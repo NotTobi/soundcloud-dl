@@ -9,6 +9,7 @@ const soundcloudApi = new SoundCloudApi(apiUrl);
 const logger = Logger.create("Background");
 const trackIds: { [tabId: string]: string } = {};
 let authorizationHeader: string | null = null;
+let downloadHqVersion: boolean = false;
 
 function sanitizeFileName(input: string) {
   return input.replace(/[\\\/\:\*\?\"\'\<\>\~\|]+/g, "");
@@ -77,7 +78,7 @@ async function handleDownload(data: DownloadData) {
     // Comment
     .setFrame("COMM", {
       description: "",
-      text: "https://addons.mozilla.org/firefox/addon/soundcloud-dl/",
+      text: "https://github.com/NotTobi/soundcloud-dl",
     });
 
   // todo: m4a artwork is currently not set
@@ -113,14 +114,15 @@ function getProgressiveStreamUrl(details: TrackDetails): string | null {
   }
 
   const hqStreams = progressiveStreams.filter((i) => i.quality === "hq");
+  const nonHqStreams = progressiveStreams.filter((i) => i.quality !== "hq");
 
-  if (hqStreams.length > 0) {
+  if (downloadHqVersion && hqStreams.length > 0) {
     logger.logInfo("Using High Quality Stream!");
 
     return hqStreams[0].url;
   }
 
-  return progressiveStreams[0].url;
+  return nonHqStreams[0].url;
 }
 
 onBeforeSendHeaders((details) => {
@@ -204,4 +206,22 @@ onMessageFromTab(async (tabId, message) => {
   };
 
   await handleDownload(downloadData);
+});
+
+const onStorageChanges = (changes: { [key: string]: browser.storage.StorageChange }) => {
+  const downloadHqVersionChange = changes["download-hq-version"];
+
+  if (downloadHqVersionChange) {
+    downloadHqVersion = downloadHqVersionChange.newValue;
+  }
+};
+
+browser.storage.onChanged.addListener(onStorageChanges);
+
+browser.storage.sync.get("download-hq-version").then((result) => {
+  downloadHqVersion = result["download-hq-version"] || true;
+});
+
+browser.pageAction.onClicked.addListener(() => {
+  browser.runtime.openOptionsPage();
 });

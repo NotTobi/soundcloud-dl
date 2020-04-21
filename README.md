@@ -1,5 +1,17 @@
 Download this extension from the [Firefox Add-Ons page](https://addons.mozilla.org/en-US/firefox/addon/soundcloud-dl).
 
+### Developer TODOs
+
+- better icons
+- document configuration
+- bundle options_ui
+- cross-browser compatibility of `browser.storage.sync` and various other `browser.`-only methods at the moment
+- cleanup `background.ts`
+
+## Configuration
+
+todo...
+
 ## Missing features
 
 - When downloading high quality .m4a audio files, the Artwork is not set
