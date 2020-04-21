@@ -3,7 +3,7 @@ async function saveOptions(e) {
 
   e.preventDefault();
 
-  const downloadHqVersion = document.querySelector("#download-hq-version").checked;
+  const downloadHqVersion = document.querySelector<HTMLInputElement>("#download-hq-version").checked;
 
   try {
     await browser.storage.sync.set({
@@ -22,7 +22,7 @@ async function restoreOptions() {
 
     const downloadHqVersion = result["download-hq-version"] ?? true;
 
-    document.querySelector("#download-hq-version").checked = downloadHqVersion;
+    document.querySelector<HTMLInputElement>("#download-hq-version").checked = downloadHqVersion;
   } catch (error) {
     console.error("Failed to restore settings!", error);
   }

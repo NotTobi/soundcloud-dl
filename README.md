@@ -4,7 +4,6 @@ Download this extension from the [Firefox Add-Ons page](https://addons.mozilla.o
 
 - better icons
 - document configuration
-- bundle options_ui
 - cross-browser compatibility of `browser.storage.sync` and various other `browser.`-only methods at the moment
 - cleanup `background.ts`
 
