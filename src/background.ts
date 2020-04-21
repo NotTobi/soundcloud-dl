@@ -208,7 +208,9 @@ onMessageFromTab(async (tabId, message) => {
   await handleDownload(downloadData);
 });
 
-const onStorageChanges = (changes: { [key: string]: browser.storage.StorageChange }) => {
+const onStorageChanges = (changes: { [key: string]: browser.storage.StorageChange }, areaName: string) => {
+  logger.logDebug("onStorageChanges", { areaName, changes });
+
   const downloadHqVersionChange = changes["download-hq-version"];
 
   if (downloadHqVersionChange) {
@@ -218,9 +220,14 @@ const onStorageChanges = (changes: { [key: string]: browser.storage.StorageChang
 
 browser.storage.onChanged.addListener(onStorageChanges);
 
-browser.storage.sync.get("download-hq-version").then((result) => {
-  downloadHqVersion = result["download-hq-version"] || true;
-});
+browser.storage.sync
+  .get("download-hq-version")
+  .then((result) => {
+    downloadHqVersion = result["download-hq-version"] || true;
+  })
+  .catch((error) => {
+    logger.logError("Failed to get configuration from storage.sync", error);
+  });
 
 browser.pageAction.onClicked.addListener(() => {
   browser.runtime.openOptionsPage();

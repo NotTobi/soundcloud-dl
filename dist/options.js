@@ -1,13 +1,17 @@
-function saveOptions(e) {
+async function saveOptions(e) {
   console.log("Saving settings...");
 
   e.preventDefault();
 
   const downloadHqVersion = document.querySelector("#download-hq-version").checked;
 
-  browser.storage.sync.set({
-    "download-hq-version": downloadHqVersion,
-  });
+  try {
+    await browser.storage.sync.set({
+      "download-hq-version": downloadHqVersion,
+    });
+  } catch (error) {
+    console.error("Failed to save settings!", error);
+  }
 }
 
 async function restoreOptions() {
@@ -16,7 +20,9 @@ async function restoreOptions() {
   try {
     const result = await browser.storage.sync.get("download-hq-version");
 
-    document.querySelector("#download-hq-version").checked = result["download-hq-version"] || true;
+    const downloadHqVersion = result["download-hq-version"] ?? true;
+
+    document.querySelector("#download-hq-version").checked = downloadHqVersion;
   } catch (error) {
     console.error("Failed to restore settings!", error);
   }
