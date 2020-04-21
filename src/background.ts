@@ -50,7 +50,7 @@ async function handleDownload(data: DownloadData) {
 
   let artworkBuffer: ArrayBuffer;
   if (artworkUrl) {
-    artworkUrl = artworkUrl.replace("-large.jpg", "-t500x500.jpg");
+    artworkUrl = artworkUrl.replace("-large.", "-original.");
 
     artworkBuffer = await soundcloudApi.downloadArtwork(artworkUrl);
   } else {
