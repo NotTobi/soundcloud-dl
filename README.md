@@ -1,11 +1,5 @@
 Download this extension from the [Firefox Add-Ons page](https://addons.mozilla.org/en-US/firefox/addon/soundcloud-dl).
 
-### Developer TODOs
-
-- document configuration
-- cross-browser compatibility of `browser.storage.sync` and various other `browser.`-only methods at the moment
-- cleanup `background.ts`
-
 ## Configuration
 
 todo...
@@ -18,6 +12,12 @@ todo...
 - Better error handling -> also displaying errors to the user
 
 If you want to help implement one of those features, go right ahead! :)
+
+### Developer TODOs
+
+- document configuration
+- cross-browser compatibility of `browser.storage.sync` and various other `browser.`-only methods at the moment
+- cleanup `background.ts`
 
 ## Building the addon
 
