@@ -1,4 +1,4 @@
-Download this extension from the [Firefox Add-Ons page](https://addons.mozilla.org/en-US/firefox/addon/soundcloud-dl).
+# Download this extension from the [Firefox Add-Ons page](https://addons.mozilla.org/en-US/firefox/addon/soundcloud-dl).
 
 ## Configuration
 
@@ -36,4 +36,4 @@ _Any other operating system should do just fine, since Node is widely supported_
 
 To build the addon run the `create-dist.sh` script.
 
-The build artifact `SoundCloud-Download.zip` can be found in the `dist` directory.
+The build artifact `SoundCloud-Download.zip` can be found in the root directory.
