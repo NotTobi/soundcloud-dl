@@ -1,11 +1,10 @@
-import ID3Writer from "browser-id3-writer";
 import { SoundCloudApi, TrackDetails } from "./soundcloudApi";
 import { Logger } from "./logger";
 import { onBeforeSendHeaders, onBeforeRequest, downloadToFile, onMessageFromTab } from "./compatibilityStubs";
 import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
+import { TagWriter } from "./tagWriter";
 
-const apiUrl = "https://api-v2.soundcloud.com";
-const soundcloudApi = new SoundCloudApi(apiUrl);
+const soundcloudApi = new SoundCloudApi();
 const logger = Logger.create("Background");
 const trackIds: { [tabId: string]: string } = {};
 let authorizationHeader: string | null = null;
@@ -66,34 +65,19 @@ async function handleDownload(data: DownloadData) {
     return;
   }
 
-  const writer = new ID3Writer(streamBuffer);
+  const writer = new TagWriter(streamBuffer);
 
-  writer
-    // Title
-    .setFrame("TIT2", titleString)
-    // Artists
-    .setFrame("TPE1", [artistsString])
-    // Album
-    .setFrame("TALB", titleString)
-    // Comment
-    .setFrame("COMM", {
-      description: "",
-      text: "https://github.com/NotTobi/soundcloud-dl",
-    });
+  writer.setTitle(titleString);
+  writer.setAlbum(titleString);
+  writer.setArtists([artistsString]);
+  writer.setComment("https://github.com/NotTobi/soundcloud-dl");
 
   // todo: m4a artwork is currently not set
   if (artworkBuffer && data.fileExtension === "mp3") {
-    // Artwork
-    writer.setFrame("APIC", {
-      type: 3,
-      data: artworkBuffer,
-      description: "",
-    });
+    writer.setArtwork(artworkBuffer);
   }
 
-  writer.addTag();
-
-  const downloadUrl = writer.getURL();
+  const downloadUrl = writer.getDownloadUrl();
   const rawFilename = `${artistsString} - ${titleString}.${data.fileExtension}`;
   const filename = sanitizeFileName(rawFilename);
 
@@ -125,6 +109,7 @@ function getProgressiveStreamUrl(details: TrackDetails): string | null {
   return nonHqStreams[0].url;
 }
 
+// todo: find better way to aquire client_id and OAuth token
 onBeforeSendHeaders((details) => {
   let requestHasAuth = false;
 
@@ -159,7 +144,6 @@ onBeforeRequest((details) => {
 
   const match = details.url.match(/tracks\/(\d+)/);
 
-  // currently I have not found a better way to do this
   if (match?.length == 2) {
     const trackId = match[1];
 

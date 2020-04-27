@@ -41,8 +41,9 @@ interface StreamDetails {
 export class SoundCloudApi {
   private logger: Logger;
   private clientId: string;
+  readonly url: string = "https://api-v2.soundcloud.com";
 
-  constructor(private readonly apiUrl) {
+  constructor() {
     this.logger = Logger.create("SoundCloudApi");
   }
 
@@ -55,7 +56,7 @@ export class SoundCloudApi {
   }
 
   async getTrack(trackId: string) {
-    const url = `${this.apiUrl}/tracks/${trackId}?client_id=${this.clientId}`;
+    const url = `${this.url}/tracks/${trackId}?client_id=${this.clientId}`;
 
     this.logger.logInfo("Fetching track with Id", trackId);
 
