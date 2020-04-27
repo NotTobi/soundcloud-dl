@@ -16,6 +16,7 @@ interface Media {
 }
 
 interface User {
+  id: number;
   username: string;
   avatar_url: string;
 }
@@ -41,26 +42,37 @@ interface StreamDetails {
 type KeyedTracks = { [key: number]: Track };
 
 export class SoundCloudApi {
-  private logger: Logger;
-  private clientId: string;
   readonly baseUrl: string = "https://api-v2.soundcloud.com";
+  private logger: Logger;
+  clientId: string;
+  userId: number;
 
   constructor() {
     this.logger = Logger.create("SoundCloudApi");
   }
 
   setClientId(clientId: string) {
-    if (this.clientId === clientId) return;
-
     this.logger.logInfo("Setting ClientId", clientId);
 
     this.clientId = clientId;
+  }
+
+  setUserId(userId: number) {
+    this.logger.logInfo("Setting UserId", userId);
+
+    this.userId = userId;
   }
 
   async resolveUrl<T>(url: string) {
     const reqUrl = `${this.baseUrl}/resolve?url=${url}&client_id=${this.clientId}`;
 
     return await this.fetchJson<T>(reqUrl);
+  }
+
+  async getCurrentUser(oauthToken: string) {
+    const url = `${this.baseUrl}/me?oauth_token=${oauthToken}&client_id=${this.clientId}`;
+
+    return await this.fetchJson<User>(url);
   }
 
   async getTracks(trackIds: number[]): Promise<KeyedTracks> {

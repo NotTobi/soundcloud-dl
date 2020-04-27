@@ -141,16 +141,25 @@ onBeforeSendHeaders((details) => {
   };
 });
 
-onBeforeRequest((details) => {
+onBeforeRequest(async (details) => {
   if (details.tabId < 0) return;
 
   const params = new URLSearchParams(details.url);
 
   const clientId = params.get("client_id");
 
-  if (!clientId) return;
+  if (!clientId || clientId === soundcloudApi.clientId) return;
 
   soundcloudApi.setClientId(clientId);
+
+  // todo: meeeeh
+  const oauthToken = authorizationHeader.split(" ")[1];
+
+  const user = await soundcloudApi.getCurrentUser(oauthToken);
+
+  if (!user) return;
+
+  soundcloudApi.setUserId(user.id);
 });
 
 onMessageFromTab(async (_, message) => {
