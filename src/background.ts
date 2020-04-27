@@ -3,12 +3,14 @@ import { Logger } from "./logger";
 import { onBeforeSendHeaders, onBeforeRequest, downloadToFile, onMessageFromTab } from "./compatibilityStubs";
 import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
 import { TagWriter } from "./tagWriter";
+import { config, initConfiguration } from "./config";
+
+initConfiguration();
 
 const soundcloudApi = new SoundCloudApi();
 const logger = Logger.create("Background");
 const trackIds: { [tabId: string]: string } = {};
 let authorizationHeader: string | null = null;
-let downloadHqVersion: boolean = false;
 
 function sanitizeFileName(input: string) {
   return input.replace(/[\\\/\:\*\?\"\'\<\>\~\|]+/g, "");
@@ -99,7 +101,7 @@ function getProgressiveStreamUrl(details: TrackDetails): string | null {
   const hqStreams = progressiveStreams.filter((i) => i.quality === "hq");
   const nonHqStreams = progressiveStreams.filter((i) => i.quality !== "hq");
 
-  if (downloadHqVersion && hqStreams.length > 0) {
+  if (config["download-hq-version"] && hqStreams.length > 0) {
     logger.logInfo("Using High Quality Stream!");
 
     return hqStreams[0].url;
@@ -107,6 +109,8 @@ function getProgressiveStreamUrl(details: TrackDetails): string | null {
 
   return nonHqStreams[0].url;
 }
+
+// -------------------- HANDLERS --------------------
 
 // todo: find better way to aquire client_id and OAuth token
 onBeforeSendHeaders((details) => {
@@ -190,27 +194,6 @@ onMessageFromTab(async (tabId, message) => {
 
   await handleDownload(downloadData);
 });
-
-const onStorageChanges = (changes: { [key: string]: browser.storage.StorageChange }, areaName: string) => {
-  logger.logDebug("onStorageChanges", { areaName, changes });
-
-  const downloadHqVersionChange = changes["download-hq-version"];
-
-  if (downloadHqVersionChange) {
-    downloadHqVersion = downloadHqVersionChange.newValue;
-  }
-};
-
-browser.storage.onChanged.addListener(onStorageChanges);
-
-browser.storage.sync
-  .get("download-hq-version")
-  .then((result) => {
-    downloadHqVersion = result["download-hq-version"] || true;
-  })
-  .catch((error) => {
-    logger.logError("Failed to get configuration from storage.sync", error);
-  });
 
 browser.pageAction.onClicked.addListener(() => {
   browser.runtime.openOptionsPage();
