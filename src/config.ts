@@ -27,7 +27,7 @@ export async function initConfiguration() {
     const values = await browser.storage.sync.get(configKeys);
 
     for (const configKey of configKeys) {
-      if (!values[configKey]) continue;
+      if (values[configKey] == null) continue;
 
       config[configKey] = values[configKey];
     }

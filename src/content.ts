@@ -33,7 +33,10 @@ const addDownloadButtonToParent = (parent: Node & ParentNode) => {
   button.onclick = async () => {
     button.disabled = true;
 
-    await sendMessageToBackend({ type: "DOWNLOAD" });
+    await sendMessageToBackend({
+      type: "DOWNLOAD",
+      url: window.location.origin + window.location.pathname,
+    });
 
     button.disabled = false;
   };

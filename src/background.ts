@@ -5,12 +5,10 @@ import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
 import { TagWriter } from "./tagWriter";
 import { config, initConfiguration } from "./config";
 
-// todo: config is kind of broken !?
 initConfiguration();
 
 const soundcloudApi = new SoundCloudApi();
 const logger = Logger.create("Background");
-const trackIds: { [tabId: string]: number } = {};
 let authorizationHeader: string | null = null;
 
 function sanitizeFileName(input: string) {
@@ -111,10 +109,6 @@ function getProgressiveStreamUrl(details: Track): string | null {
   return nonHqStreams[0].url;
 }
 
-function downloadTrack(id: number) {}
-
-function downloadTracks(ids: number[]) {}
-
 // -------------------- HANDLERS --------------------
 
 // todo: find better way to aquire client_id and OAuth token
@@ -150,14 +144,6 @@ onBeforeSendHeaders((details) => {
 onBeforeRequest((details) => {
   if (details.tabId < 0) return;
 
-  const match = details.url.match(/tracks\/(\d+)/);
-
-  if (match?.length == 2) {
-    const trackId = match[1];
-
-    trackIds[details.tabId] = trackId;
-  }
-
   const params = new URLSearchParams(details.url);
 
   const clientId = params.get("client_id");
@@ -167,18 +153,12 @@ onBeforeRequest((details) => {
   soundcloudApi.setClientId(clientId);
 });
 
-onMessageFromTab(async (tabId, message) => {
-  if (message.type !== "DOWNLOAD") return;
+onMessageFromTab(async (_, message) => {
+  if (message.type !== "DOWNLOAD" || !message.url) return;
 
-  const trackId = trackIds[tabId];
+  const track = await soundcloudApi.resolveUrl<Track>(message.url);
 
-  if (!trackId) return;
-
-  const tracks = await soundcloudApi.getTracks([trackId]);
-
-  if (!tracks || !tracks[trackId]) return;
-
-  const track = tracks[trackId];
+  if (!track) return;
 
   const progressiveStreamUrl = getProgressiveStreamUrl(track);
 
