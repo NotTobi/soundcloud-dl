@@ -1,8 +1,10 @@
-# Download this extension from the [Firefox Add-Ons page](https://addons.mozilla.org/en-US/firefox/addon/soundcloud-dl).
+# Download this extension from the [Firefox Add-Ons page](https://addons.mozilla.org/en-US/firefox/addon/soundcloud-dl)
 
 ## Configuration
 
-todo...
+If you're on soundcloud.com, there should be an icon of this extension next to the addressbar. Click on it to get to the configuration section.
+
+Once there you can configure, if you want to download the higher quality audio versions or not (only applies to GO+ users).
 
 ## Missing features
 
@@ -15,7 +17,6 @@ If you want to help implement one of those features, go right ahead! :)
 
 ### Developer TODOs
 
-- document configuration
 - cross-browser compatibility of `browser.storage.sync` and various other `browser.`-only methods at the moment
 - cleanup `background.ts`
 
@@ -23,13 +24,13 @@ If you want to help implement one of those features, go right ahead! :)
 
 ### Operating system used
 
-Linux 5.5.15-1-MANJARO
+Linux 5.6.7-MANJARO
 
 _Any other operating system should do just fine, since Node is widely supported_
 
 ### Software/Tooling used
 
-- Node v13.12.0 - [Installation instructions](https://nodejs.org/en/download/)
+- Node v13.13.0 - [Installation instructions](https://nodejs.org/en/download/)
 - yarn v1.22.4 - [Installation instructions](https://classic.yarnpkg.com/en/docs/install)
 
 ### Build process
