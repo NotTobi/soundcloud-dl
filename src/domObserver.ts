@@ -5,7 +5,7 @@ export interface ObserverEvent {
   callback: (node: any) => void;
 }
 
-export class Observer {
+export class DomObserver {
   private observer: MutationObserver;
   private events: ObserverEvent[] = [];
   private unqiueNodeId: number = 0;

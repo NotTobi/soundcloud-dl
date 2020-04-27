@@ -1,8 +1,8 @@
-import { Observer, ObserverEvent } from "./observer";
+import { DomObserver, ObserverEvent } from "./domObserver";
 import { Logger } from "./logger";
 import { sendMessageToBackend } from "./compatibilityStubs";
 
-let observer: Observer | null = null;
+let observer: DomObserver | null = null;
 const logger = Logger.create("SoundCloud-Downloader");
 
 const createDownloadButton = () => {
@@ -90,7 +90,7 @@ const addDownloadButtons = () => {
 };
 
 const handlePageLoaded = () => {
-  observer = new Observer();
+  observer = new DomObserver();
 
   removeBuyLinks();
 

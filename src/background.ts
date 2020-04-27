@@ -48,15 +48,6 @@ async function handleDownload(data: DownloadData) {
     artworkUrl = avatarUrl;
   }
 
-  let artworkBuffer: ArrayBuffer;
-  if (artworkUrl) {
-    artworkUrl = artworkUrl.replace("-large.", "-original.");
-
-    artworkBuffer = await soundcloudApi.downloadArtwork(artworkUrl);
-  } else {
-    logger.logWarn("No Artwork URL could be determined");
-  }
-
   const streamBuffer = await soundcloudApi.downloadStream(streamUrl);
 
   if (!streamBuffer) {
@@ -72,9 +63,17 @@ async function handleDownload(data: DownloadData) {
   writer.setArtists([artistsString]);
   writer.setComment("https://github.com/NotTobi/soundcloud-dl");
 
-  // todo: m4a artwork is currently not set
-  if (artworkBuffer && data.fileExtension === "mp3") {
-    writer.setArtwork(artworkBuffer);
+  // todo: setting artwork for m4a currently does not work
+  if (artworkUrl && data.fileExtension === "mp3") {
+    artworkUrl = artworkUrl.replace("-large.", "-original.");
+
+    const artworkBuffer = await soundcloudApi.downloadArtwork(artworkUrl);
+
+    if (artworkBuffer) {
+      writer.setArtwork(artworkBuffer);
+    }
+  } else {
+    logger.logWarn("No Artwork URL could be determined");
   }
 
   const downloadUrl = writer.getDownloadUrl();
