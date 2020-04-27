@@ -20,7 +20,7 @@ interface User {
   avatar_url: string;
 }
 
-export interface TrackDetails {
+export interface Track {
   kind: string;
   state: string;
   title: string;
@@ -38,10 +38,12 @@ interface StreamDetails {
   extension: string;
 }
 
+type KeyedTracks = { [key: number]: Track };
+
 export class SoundCloudApi {
   private logger: Logger;
   private clientId: string;
-  readonly url: string = "https://api-v2.soundcloud.com";
+  readonly baseUrl: string = "https://api-v2.soundcloud.com";
 
   constructor() {
     this.logger = Logger.create("SoundCloudApi");
@@ -55,20 +57,24 @@ export class SoundCloudApi {
     this.clientId = clientId;
   }
 
-  async getTrack(trackId: string) {
-    const url = `${this.url}/tracks/${trackId}?client_id=${this.clientId}`;
+  async resolveUrl<T>(url: string) {
+    const reqUrl = `${this.baseUrl}/resolve?url=${url}&client_id=${this.clientId}`;
 
-    this.logger.logInfo("Fetching track with Id", trackId);
+    return await this.fetchJson<T>(reqUrl);
+  }
 
-    const track = await this.fetchJson<TrackDetails>(url);
+  async getTracks(trackIds: number[]): Promise<KeyedTracks> {
+    const url = `${this.baseUrl}/tracks?ids=${trackIds.join(",")}&client_id=${this.clientId}`;
 
-    if (!track || track.kind != "track" || track.state != "finished") {
-      this.logger.logError("Invalid track response", track);
+    this.logger.logInfo("Fetching tracks with Ids", { trackIds });
 
-      return null;
-    }
+    const tracks = await this.fetchJson<Track>(url);
 
-    return track;
+    return trackIds.reduce((acc, cur, index) => {
+      acc[cur] = tracks[index];
+
+      return acc;
+    }, {});
   }
 
   async getStreamDetails(progressiveStreamUrl: string): Promise<StreamDetails> {

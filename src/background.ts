@@ -1,15 +1,16 @@
-import { SoundCloudApi, TrackDetails } from "./soundcloudApi";
+import { SoundCloudApi, Track } from "./soundcloudApi";
 import { Logger } from "./logger";
 import { onBeforeSendHeaders, onBeforeRequest, downloadToFile, onMessageFromTab } from "./compatibilityStubs";
 import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
 import { TagWriter } from "./tagWriter";
 import { config, initConfiguration } from "./config";
 
+// todo: config is kind of broken !?
 initConfiguration();
 
 const soundcloudApi = new SoundCloudApi();
 const logger = Logger.create("Background");
-const trackIds: { [tabId: string]: string } = {};
+const trackIds: { [tabId: string]: number } = {};
 let authorizationHeader: string | null = null;
 
 function sanitizeFileName(input: string) {
@@ -75,7 +76,7 @@ async function handleDownload(data: DownloadData) {
       writer.setArtwork(artworkBuffer);
     }
   } else {
-    logger.logWarn("No Artwork URL could be determined");
+    logger.logWarn("Skipping download of Artowrk");
   }
 
   const downloadUrl = writer.getDownloadUrl();
@@ -85,7 +86,7 @@ async function handleDownload(data: DownloadData) {
   await downloadToFile(downloadUrl, filename);
 }
 
-function getProgressiveStreamUrl(details: TrackDetails): string | null {
+function getProgressiveStreamUrl(details: Track): string | null {
   if (!details || !details.media || !details.media.transcodings || details.media.transcodings.length < 1) return null;
 
   const progressiveStreams = details.media.transcodings.filter(
@@ -109,6 +110,10 @@ function getProgressiveStreamUrl(details: TrackDetails): string | null {
 
   return nonHqStreams[0].url;
 }
+
+function downloadTrack(id: number) {}
+
+function downloadTracks(ids: number[]) {}
 
 // -------------------- HANDLERS --------------------
 
@@ -169,13 +174,13 @@ onMessageFromTab(async (tabId, message) => {
 
   if (!trackId) return;
 
-  logger.logInfo("Downloading...", trackId);
+  const tracks = await soundcloudApi.getTracks([trackId]);
 
-  const trackDetails = await soundcloudApi.getTrack(trackId);
+  if (!tracks || !tracks[trackId]) return;
 
-  if (!trackDetails) return;
+  const track = tracks[trackId];
 
-  const progressiveStreamUrl = getProgressiveStreamUrl(trackDetails);
+  const progressiveStreamUrl = getProgressiveStreamUrl(track);
 
   if (!progressiveStreamUrl) return;
 
@@ -186,10 +191,10 @@ onMessageFromTab(async (tabId, message) => {
   const downloadData: DownloadData = {
     streamUrl: stream.url,
     fileExtension: stream.extension,
-    title: trackDetails.title,
-    username: trackDetails.user.username,
-    artworkUrl: trackDetails.artwork_url,
-    avatarUrl: trackDetails.user.avatar_url,
+    title: track.title,
+    username: track.user.username,
+    artworkUrl: track.artwork_url,
+    avatarUrl: track.user.avatar_url,
   };
 
   await handleDownload(downloadData);
