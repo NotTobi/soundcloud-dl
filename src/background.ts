@@ -2,8 +2,10 @@ import { SoundCloudApi, Track } from "./soundcloudApi";
 import { Logger } from "./logger";
 import { onBeforeSendHeaders, onBeforeRequest, downloadToFile, onMessageFromTab } from "./compatibilityStubs";
 import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
-import { TagWriter } from "./tagWriter";
+import { Id3TagWriter } from "./id3TagWriter";
 import { config, initConfiguration } from "./config";
+import { TagWriter } from "./tagWriter";
+import { Mp4TagWriter } from "./mp4TagWriter";
 
 initConfiguration();
 
@@ -57,15 +59,20 @@ async function handleDownload(data: DownloadData) {
     return;
   }
 
-  const writer = new TagWriter(streamBuffer);
+  let writer: TagWriter;
+
+  if (data.fileExtension === "m4a") {
+    writer = new Mp4TagWriter(streamBuffer);
+  } else {
+    writer = new Id3TagWriter(streamBuffer);
+  }
 
   writer.setTitle(titleString);
   writer.setAlbum(titleString);
   writer.setArtists([artistsString]);
   writer.setComment("https://github.com/NotTobi/soundcloud-dl");
 
-  // todo: setting artwork for m4a currently does not work
-  if (artworkUrl && data.fileExtension === "mp3") {
+  if (artworkUrl) {
     artworkUrl = artworkUrl.replace("-large.", "-original.");
 
     const artworkBuffer = await soundcloudApi.downloadArtwork(artworkUrl);
