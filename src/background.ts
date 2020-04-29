@@ -2,7 +2,7 @@ import { SoundCloudApi, Track } from "./soundcloudApi";
 import { Logger } from "./logger";
 import { onBeforeSendHeaders, onBeforeRequest, downloadToFile, onMessageFromTab } from "./compatibilityStubs";
 import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
-import { Id3TagWriter } from "./id3TagWriter";
+import { Mp3TagWriter } from "./mp3TagWriter";
 import { config, initConfiguration } from "./config";
 import { TagWriter } from "./tagWriter";
 import { Mp4TagWriter } from "./mp4TagWriter";
@@ -64,7 +64,7 @@ async function handleDownload(data: DownloadData) {
   if (data.fileExtension === "m4a") {
     writer = new Mp4TagWriter(streamBuffer);
   } else {
-    writer = new Id3TagWriter(streamBuffer);
+    writer = new Mp3TagWriter(streamBuffer);
   }
 
   writer.setTitle(titleString);
@@ -158,6 +158,8 @@ onBeforeRequest(async (details) => {
   if (!clientId || clientId === soundcloudApi.clientId) return;
 
   soundcloudApi.setClientId(clientId);
+
+  if (!authorizationHeader) return;
 
   // todo: meeeeh
   const oauthToken = authorizationHeader.split(" ")[1];

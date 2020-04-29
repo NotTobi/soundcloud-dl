@@ -1,7 +1,7 @@
 import ID3Writer from "browser-id3-writer";
 import { TagWriter } from "./tagWriter";
 
-export class Id3TagWriter implements TagWriter {
+export class Mp3TagWriter implements TagWriter {
   private writer: ID3Writer;
 
   constructor(buffer: ArrayBuffer) {
