@@ -8,16 +8,16 @@ Once there you can configure, if you want to download the higher quality audio v
 
 ## Missing features
 
-- When downloading high quality .m4a audio files, the Artwork is not set
-- Add download buttons in more locations around the page
 - Download playlists/albums/favorites
-- Better error handling -> also displaying errors to the user
+- Add download buttons in more locations around the page
 
 If you want to help implement one of those features, go right ahead! :)
 
 ### Developer TODOs
 
+- download original file if possible
 - cross-browser compatibility of `browser.storage.sync` and various other `browser.`-only methods at the moment
+- better error handling -> also displaying errors to the user
 - cleanup `background.ts`
 
 ## Building the addon
