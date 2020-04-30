@@ -102,7 +102,7 @@ class Mp4 {
     }
 
     // data length at 8, length = 4
-    headerBufferView.setUint32(8, dataBuffer.byteLength);
+    headerBufferView.setUint32(8, dataBuffer.byteLength + 16);
 
     // data name at 12, length = 4
     const dataName = "data";
@@ -126,8 +126,6 @@ class Mp4 {
     result.set(new Uint8Array(this._buffer.slice(offset)), offset + headerBuffer.byteLength + dataBuffer.byteLength);
 
     this._buffer = resultBuffer;
-
-    // todo there appears to still be a padding issue
   }
 
   getBuffer() {
