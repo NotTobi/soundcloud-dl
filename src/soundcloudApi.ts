@@ -92,8 +92,6 @@ export class SoundCloudApi {
   async getStreamDetails(progressiveStreamUrl: string): Promise<StreamDetails> {
     const url = `${progressiveStreamUrl}?client_id=${this.clientId}`;
 
-    this.logger.logInfo("Fetching stream from progressiveStreamUrl", progressiveStreamUrl);
-
     const stream = await this.fetchJson<ProgressiveStream>(url);
 
     if (!stream || !stream.url) {
@@ -116,14 +114,10 @@ export class SoundCloudApi {
   }
 
   async downloadArtwork(artworkUrl: string) {
-    this.logger.logInfo("Downloading artwork from", artworkUrl);
-
     return this.fetchArrayBuffer(artworkUrl);
   }
 
   async downloadStream(streamUrl) {
-    this.logger.logInfo("Downloading stream from", streamUrl);
-
     return this.fetchArrayBuffer(streamUrl);
   }
 

@@ -11,17 +11,14 @@ class Mp4 {
   // Metadata resides in moov.udta.meta.ilst
   private readonly _metadataAtoms = ["moov", "udta", "meta", "ilst"];
   private _buffer: ArrayBuffer;
-  private _textEncoder: TextEncoder;
-  private _moovAtom: Atom | null;
-  private _ilstAtom: Atom | null;
+  private _atoms: Atom[] = [];
 
   constructor(buffer: ArrayBuffer) {
     this._buffer = buffer;
-    this._textEncoder = new TextEncoder();
   }
 
   parse() {
-    if (this._moovAtom) throw new Error("Buffer already parsed.");
+    if (this._atoms.length > 0) throw new Error("Buffer already parsed.");
 
     let offset = 0;
     let atom: Atom;
@@ -32,16 +29,16 @@ class Mp4 {
       if (!atom || atom.length < 1) break;
 
       if (atom.name === "moov") {
-        this._moovAtom = atom;
+        this._atoms.push(atom);
         break;
       }
 
       offset = atom.offset + atom.length;
     }
 
-    if (!this._moovAtom) throw new Error("Buffer does not contain a 'moov' atom.");
+    if (this._atoms.length < 1) throw new Error("Buffer could not be parsed.");
 
-    let curAtom = this._moovAtom;
+    let curAtom = this._atoms[0];
 
     for (let i = 1; i < this._metadataAtoms.length; i++) {
       const curAtomName = this._metadataAtoms[i];
@@ -49,56 +46,116 @@ class Mp4 {
       curAtom = curAtom.children?.find((atom) => atom.name === curAtomName);
 
       if (!curAtom) throw new Error(`Could not determine '${curAtomName}' atom`);
+
+      this._atoms.push(curAtom);
     }
 
-    this._ilstAtom = curAtom;
+    this._atoms = this._atoms.reverse();
+
+    console.log({ buffer: this._buffer, oldAtoms: this._atoms.map((i) => ({ ...i })) });
   }
 
   addMetadataAtom(name: string, data: ArrayBuffer | string) {
-    const dataType = typeof data;
-    const encodedName = this._textEncoder.encode(name).buffer;
-    let encodedData: ArrayBuffer;
+    if (name.length > 4 || name.length < 1) throw new Error(`Unsupported atom name: '${name}'.`);
+
+    let dataBuffer: ArrayBuffer;
 
     if (data instanceof ArrayBuffer) {
-      encodedData = data;
-    } else if (dataType === "string") {
-      encodedData = this._textEncoder.encode(data).buffer;
+      dataBuffer = data;
+    } else if (typeof data === "string") {
+      dataBuffer = this._getBufferFromString(data);
     } else {
-      throw new Error(`Unsupported data of type '${dataType}'`);
+      throw new Error(`Unsupported data: '${data}'`);
     }
 
-    // todo is byteLength same as length stored !?
-    const length = encodedData.byteLength + 8;
-    let offset = this._ilstAtom.offset + 8;
+    // determine offset
+    const [ilstAtom] = this._atoms;
 
-    if (this._ilstAtom.children.length > 0) {
-      const lastChild = this._ilstAtom.children[this._ilstAtom.children.length - 1];
+    let offset = ilstAtom.offset + 8;
+
+    if (ilstAtom.children.length > 0) {
+      const lastChild = ilstAtom.children[ilstAtom.children.length - 1];
 
       offset = lastChild.offset + lastChild.length;
     }
 
+    const atomHeaderLength = 24;
+    const atomLength = atomHeaderLength + dataBuffer.byteLength;
+
     const atom: Atom = {
       name,
-      length,
+      length: atomLength,
       offset,
       children: [],
     };
 
-    this._ilstAtom.children.push(atom);
+    ilstAtom.children.push(atom);
 
-    // todo cover will (likely !?) need format flag
+    const headerBuffer = new ArrayBuffer(atomHeaderLength);
+    const headerBufferView = new DataView(headerBuffer);
 
-    const startBuffer = this._buffer.slice(0, offset);
-    const endBuffer = this._buffer.slice(offset, this._buffer.byteLength - offset);
+    // length at 0, length = 4
+    headerBufferView.setUint32(0, atomLength);
 
-    // todo insert length, name and encoded data between start- and endBuffer
-    // length needs to be padded and encoded (!?)
+    // name at 4, length = 4
+    for (let i = 0; i < name.length; i++) {
+      const char = name.charCodeAt(i);
+      headerBufferView.setUint8(4 + i, char);
+    }
+
+    // data length at 8, length = 4
+    headerBufferView.setUint32(8, dataBuffer.byteLength);
+
+    // data name at 12, length = 4
+    const dataName = "data";
+    for (let i = 0; i < dataName.length; i++) {
+      const char = dataName.charCodeAt(i);
+      headerBufferView.setUint8(12 + i, char);
+    }
+
+    let atomFlag = 1;
+    if (name === "covr") atomFlag = 13;
+
+    // data flags at 16, length = 4
+    headerBufferView.setUint32(16, atomFlag);
+
+    // todo insert headerbuffer in buffer at offset
   }
 
   getBuffer() {
-    // todo recalculate lengths of moov/children and change them in the buffer
+    const bufferView = new DataView(this._buffer);
+
+    for (const atom of this._atoms) {
+      if (atom.children?.length > 0) {
+        atom.length = 8 + atom.children.reduce((acc, cur) => acc + cur.length, 0);
+      }
+
+      if (atom.name === "meta") {
+        atom.length += 4;
+      } else if (atom.name === "stsd") {
+        atom.length += 8;
+      }
+
+      bufferView.setUint32(atom.offset, atom.length);
+    }
+
+    console.log({ newBuffer: this._buffer, newAtoms: this._atoms.map((i) => ({ ...i })) });
 
     return this._buffer;
+  }
+
+  private _getBufferFromString(input: string): ArrayBuffer {
+    // return new TextEncoder().encode(input).buffer;
+
+    const buffer = new ArrayBuffer(input.length);
+    const bufferView = new DataView(buffer);
+
+    for (let i = 0; i < input.length; i++) {
+      const char = input.charCodeAt(i);
+      bufferView.setUint8(i, char);
+    }
+
+    return buffer;
   }
 
   private _readAtom(offset: number): Atom {
@@ -110,13 +167,14 @@ class Mp4 {
     if (buffer.byteLength < 8) {
       return {
         length: 0,
-        offset: offset,
+        offset,
       };
     }
 
-    // length is first 4 bytes; name are second 4 bytes
     const dataView = new DataView(buffer);
+
     const length = dataView.getUint32(0, false);
+
     let name = "";
     for (let i = 0; i < 4; i++) {
       name += String.fromCharCode(dataView.getUint8(4 + i));
@@ -129,6 +187,8 @@ class Mp4 {
 
       if (name === "meta") {
         childOffset += 4;
+      } else if (name === "stsd") {
+        childOffset += 8;
       }
 
       while (true) {
@@ -154,7 +214,6 @@ class Mp4 {
         name,
         length,
         offset,
-        children: [],
       };
     }
   }
@@ -168,26 +227,22 @@ export class Mp4TagWriter implements TagWriter {
     this._mp4.parse();
   }
 
-  // "\251nam"
   setTitle(title: string) {
     this._mp4.addMetadataAtom("©nam", title);
   }
 
-  // "\251ART"
   setArtists(artists: string[]) {
     const artist = artists.join(", ");
 
-    this._mp4.addMetadataAtom("©art", artist);
+    // this._mp4.addMetadataAtom("©ART", artist);
   }
 
-  // "\251alb"
   setAlbum(album: string) {
-    this._mp4.addMetadataAtom("©alb", album);
+    // this._mp4.addMetadataAtom("©alb", album);
   }
 
-  // "\251cmt"
   setComment(comment: string) {
-    this._mp4.addMetadataAtom("©cmt", comment);
+    // this._mp4.addMetadataAtom("©cmt", comment);
   }
 
   setArtwork(artworkBuffer: ArrayBuffer) {
