@@ -51,8 +51,6 @@ class Mp4 {
     }
 
     this._atoms = this._atoms.reverse();
-
-    console.log({ buffer: this._buffer, oldAtoms: this._atoms.map((i) => ({ ...i })) });
   }
 
   addMetadataAtom(name: string, data: ArrayBuffer | string) {
@@ -119,7 +117,17 @@ class Mp4 {
     // data flags at 16, length = 4
     headerBufferView.setUint32(16, atomFlag);
 
-    // todo insert headerbuffer in buffer at offset
+    const resultBuffer = new ArrayBuffer(this._buffer.byteLength + headerBuffer.byteLength + dataBuffer.byteLength);
+    const result = new Uint8Array(resultBuffer);
+
+    result.set(new Uint8Array(this._buffer.slice(0, offset)), 0);
+    result.set(new Uint8Array(headerBuffer), offset);
+    result.set(new Uint8Array(dataBuffer), offset + headerBuffer.byteLength);
+    result.set(new Uint8Array(this._buffer.slice(offset)), offset + headerBuffer.byteLength + dataBuffer.byteLength);
+
+    this._buffer = resultBuffer;
+
+    // todo there appears to still be a padding issue
   }
 
   getBuffer() {
@@ -138,8 +146,6 @@ class Mp4 {
 
       bufferView.setUint32(atom.offset, atom.length);
     }
-
-    console.log({ newBuffer: this._buffer, newAtoms: this._atoms.map((i) => ({ ...i })) });
 
     return this._buffer;
   }
@@ -234,19 +240,19 @@ export class Mp4TagWriter implements TagWriter {
   setArtists(artists: string[]) {
     const artist = artists.join(", ");
 
-    // this._mp4.addMetadataAtom("©ART", artist);
+    this._mp4.addMetadataAtom("©ART", artist);
   }
 
   setAlbum(album: string) {
-    // this._mp4.addMetadataAtom("©alb", album);
+    this._mp4.addMetadataAtom("©alb", album);
   }
 
   setComment(comment: string) {
-    // this._mp4.addMetadataAtom("©cmt", comment);
+    this._mp4.addMetadataAtom("©cmt", comment);
   }
 
   setArtwork(artworkBuffer: ArrayBuffer) {
-    // this._mp4.addMetadataAtom("covr", artworkBuffer);
+    this._mp4.addMetadataAtom("covr", artworkBuffer);
   }
 
   getDownloadUrl() {
