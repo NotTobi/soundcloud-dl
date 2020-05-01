@@ -27,36 +27,40 @@ export const onBeforeRequest = (callback: OnBeforeRequestCallback) => {
   }
 };
 
-type MessageFromTabCallback = (tabId: number, message: any) => void;
+type MessageFromTabCallback = (tabId: number, message: any) => Promise<any>;
 
 export const onMessageFromTab = (callback: MessageFromTabCallback) => {
   if (typeof browser !== "undefined") {
-    browser.runtime.onMessage.addListener((message, sender) => {
+    browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (sender.id !== browser.runtime.id || !message) return;
 
-      callback(sender.tab.id, message);
+      callback(sender.tab.id, message).then((resp) => sendResponse(resp));
+
+      return true;
     });
   } else if (typeof chrome !== "undefined") {
-    chrome.runtime.onMessage.addListener((message, sender) => {
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (sender.id !== chrome.runtime.id || !message) return;
 
-      callback(sender.tab.id, message);
+      callback(sender.tab.id, message).then((resp) => sendResponse(resp));
+
+      return true;
     });
   } else {
     logger.logError("Browser not supported for runtime.onMessage");
   }
 };
 
-export const downloadToFile = (url: string, filename: string) => {
+export const downloadToFile = async (url: string, filename: string) => {
   const downloadOptions = {
     url,
     filename,
   };
 
   if (typeof browser !== "undefined") {
-    return browser.downloads.download(downloadOptions);
+    return await browser.downloads.download(downloadOptions);
   } else if (typeof chrome !== "undefined") {
-    return new Promise<number>((resolve) => {
+    return await new Promise<number>((resolve) => {
       chrome.downloads.download(downloadOptions, (id) => resolve(id));
     });
   } else {
@@ -66,11 +70,11 @@ export const downloadToFile = (url: string, filename: string) => {
   }
 };
 
-export const sendMessageToBackend = (message: any) => {
+export const sendMessageToBackend = async (message: any) => {
   if (typeof browser !== "undefined") {
-    return browser.runtime.sendMessage(message);
+    return await browser.runtime.sendMessage(message);
   } else if (typeof chrome !== "undefined") {
-    return new Promise((resolve) => {
+    return await new Promise((resolve) => {
       chrome.runtime.sendMessage(message, resolve);
     });
   } else {

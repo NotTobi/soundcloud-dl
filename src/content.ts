@@ -32,6 +32,8 @@ const addDownloadButtonToParent = (parent: Node & ParentNode) => {
   const button = createDownloadButton();
   button.onclick = async () => {
     button.disabled = true;
+    button.title = "Downloading...";
+    button.innerText = "Downloading...";
 
     await sendMessageToBackend({
       type: "DOWNLOAD",
@@ -39,6 +41,8 @@ const addDownloadButtonToParent = (parent: Node & ParentNode) => {
     });
 
     button.disabled = false;
+    button.title = "Download";
+    button.innerText = "Download";
   };
 
   logger.logDebug("Adding download button...", { parent });

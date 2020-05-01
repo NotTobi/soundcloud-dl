@@ -23,7 +23,7 @@ interface DownloadData {
   avatarUrl: string;
   artworkUrl: string;
   streamUrl: string;
-  fileExtension: string;
+  fileExtension?: string;
 }
 
 async function handleDownload(data: DownloadData) {
@@ -44,12 +44,17 @@ async function handleDownload(data: DownloadData) {
     titleString += ` (${remixerNames} ${remixTypeString})`;
   }
 
+  const rawFilename = `${artistsString} - ${titleString}.${data.fileExtension}`;
+  const filename = sanitizeFileName(rawFilename);
+
   let artworkUrl = data.artworkUrl;
 
   if (!artworkUrl) {
     logger.logInfo("No Artwork URL could be determined. Fallback to User Avatar");
     artworkUrl = avatarUrl;
   }
+
+  logger.logInfo(`Starting download of '${filename}'...`);
 
   const streamBuffer = await soundcloudApi.downloadStream(streamUrl);
 
@@ -63,32 +68,39 @@ async function handleDownload(data: DownloadData) {
 
   if (data.fileExtension === "m4a") {
     writer = new Mp4TagWriter(streamBuffer);
-  } else {
+  } else if (data.fileExtension === "mp3") {
     writer = new Mp3TagWriter(streamBuffer);
   }
 
-  writer.setTitle(titleString);
-  writer.setAlbum(titleString);
-  writer.setArtists([artistsString]);
-  writer.setComment("https://github.com/NotTobi/soundcloud-dl");
+  let downloadBuffer: ArrayBuffer = streamBuffer;
 
-  if (artworkUrl) {
-    artworkUrl = artworkUrl.replace("-large.", "-original.");
+  if (writer) {
+    writer.setTitle(titleString);
+    writer.setAlbum(titleString);
+    writer.setArtists([artistsString]);
+    writer.setComment("https://github.com/NotTobi/soundcloud-dl");
 
-    const artworkBuffer = await soundcloudApi.downloadArtwork(artworkUrl);
+    if (artworkUrl) {
+      artworkUrl = artworkUrl.replace("-large.", "-original.");
 
-    if (artworkBuffer) {
-      writer.setArtwork(artworkBuffer);
+      const artworkBuffer = await soundcloudApi.downloadArtwork(artworkUrl);
+
+      if (artworkBuffer) {
+        writer.setArtwork(artworkBuffer);
+      }
+    } else {
+      logger.logWarn("Skipping download of Artwork");
     }
-  } else {
-    logger.logWarn("Skipping download of Artowrk");
+
+    downloadBuffer = await writer.getBuffer();
   }
 
-  const downloadUrl = writer.getDownloadUrl();
-  const rawFilename = `${artistsString} - ${titleString}.${data.fileExtension}`;
-  const filename = sanitizeFileName(rawFilename);
+  const downloadBlob = new Blob([downloadBuffer]); // , { type: "audio/mpeg" }
+  const downloadUrl = URL.createObjectURL(downloadBlob);
 
   await downloadToFile(downloadUrl, filename);
+
+  logger.logInfo(`Successfully downloaded '${filename}'!`);
 }
 
 function getProgressiveStreamUrl(details: Track): string | null {
@@ -176,15 +188,42 @@ onMessageFromTab(async (_, message) => {
 
   const track = await soundcloudApi.resolveUrl<Track>(message.url);
 
-  if (!track) return;
+  if (!track || track.kind !== "track" || track.state !== "finished" || !track.streamable) {
+    logger.logError("Track is not streamable", track);
 
-  const progressiveStreamUrl = getProgressiveStreamUrl(track);
+    return;
+  }
 
-  if (!progressiveStreamUrl) return;
+  let stream: { url: string; extension?: string };
 
-  const stream = await soundcloudApi.getStreamDetails(progressiveStreamUrl);
+  if (track.downloadable && track.has_downloads_left) {
+    const originalDownloadUrl = await soundcloudApi.getOriginalDownloadUrl(track.id);
 
-  if (!stream) return;
+    if (originalDownloadUrl) {
+      stream = {
+        url: originalDownloadUrl,
+        extension: "wav", // todo: we can't know this yet, this is just an assumption
+      };
+    }
+  }
+
+  if (!stream) {
+    const progressiveStreamUrl = getProgressiveStreamUrl(track);
+
+    if (!progressiveStreamUrl) {
+      logger.logError("Progressive stream URL could not be determined", track);
+
+      return;
+    }
+
+    stream = await soundcloudApi.getStreamDetails(progressiveStreamUrl);
+  }
+
+  if (!stream) {
+    logger.logError("Stream could not be determined");
+
+    return;
+  }
 
   const downloadData: DownloadData = {
     streamUrl: stream.url,

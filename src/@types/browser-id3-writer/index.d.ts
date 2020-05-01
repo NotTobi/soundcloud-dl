@@ -5,5 +5,6 @@ declare module "browser-id3-writer" {
     setFrame(name: string, value: any);
     addTag(): void;
     getURL(): string;
+    getBlob(): Blob;
   }
 }

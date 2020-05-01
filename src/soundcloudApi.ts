@@ -22,10 +22,14 @@ interface User {
 }
 
 export interface Track {
+  id: number;
   kind: string;
   state: string;
   title: string;
   artwork_url: string;
+  streamable: boolean;
+  downloadable: boolean;
+  has_downloads_left: boolean;
   user: User;
   media: Media;
 }
@@ -37,6 +41,10 @@ interface ProgressiveStream {
 interface StreamDetails {
   url: string;
   extension: string;
+}
+
+interface OriginalDownload {
+  redirectUri: string;
 }
 
 type KeyedTracks = { [key: number]: Track };
@@ -113,11 +121,27 @@ export class SoundCloudApi {
     };
   }
 
+  async getOriginalDownloadUrl(id: number) {
+    const url = `${this.baseUrl}/tracks/${id}/download?client_id=${this.clientId}`;
+
+    this.logger.logInfo("Getting original download URL for track with Id", id);
+
+    const downloadObj = await this.fetchJson<OriginalDownload>(url);
+
+    if (!downloadObj || !downloadObj.redirectUri) {
+      this.logger.logError("Invalid original file response", downloadObj);
+
+      return null;
+    }
+
+    return downloadObj.redirectUri;
+  }
+
   async downloadArtwork(artworkUrl: string) {
     return this.fetchArrayBuffer(artworkUrl);
   }
 
-  async downloadStream(streamUrl) {
+  async downloadStream(streamUrl: string) {
     return this.fetchArrayBuffer(streamUrl);
   }
 

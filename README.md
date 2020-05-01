@@ -13,12 +13,13 @@ Once there you can configure, if you want to download the higher quality audio v
 
 If you want to help implement one of those features, go right ahead! :)
 
-### Developer TODOs
+#### Developer TODOs
 
-- download original file if possible
+- add download support for hls only files
 - cross-browser compatibility of `browser.storage.sync` and various other `browser.`-only methods at the moment
 - better error handling -> also displaying errors to the user
 - cleanup `background.ts`
+- cleanup `mp4TagWriter.ts` and try to improve performance
 
 ## Building the addon
 

@@ -253,10 +253,7 @@ export class Mp4TagWriter implements TagWriter {
     this._mp4.addMetadataAtom("covr", artworkBuffer);
   }
 
-  getDownloadUrl() {
-    const buffer = this._mp4.getBuffer();
-    const blob = new Blob([buffer], { type: "audio/mpeg" });
-
-    return URL.createObjectURL(blob);
+  getBuffer() {
+    return Promise.resolve(this._mp4.getBuffer());
   }
 }

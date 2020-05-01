@@ -35,9 +35,9 @@ export class Mp3TagWriter implements TagWriter {
     });
   }
 
-  getDownloadUrl() {
+  async getBuffer() {
     this.writer.addTag();
 
-    return this.writer.getURL();
+    return await this.writer.getBlob().arrayBuffer();
   }
 }
