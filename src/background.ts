@@ -1,6 +1,13 @@
 import { SoundCloudApi, Track } from "./soundcloudApi";
 import { Logger } from "./logger";
-import { onBeforeSendHeaders, onBeforeRequest, downloadToFile, onMessageFromTab } from "./compatibilityStubs";
+import {
+  onBeforeSendHeaders,
+  onBeforeRequest,
+  downloadToFile,
+  onMessageFromTab,
+  onPageActionClicked,
+  openOptionsPage,
+} from "./compatibilityStubs";
 import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
 import { Mp3TagWriter } from "./mp3TagWriter";
 import { config, loadConfiguration } from "./config";
@@ -95,7 +102,7 @@ async function handleDownload(data: DownloadData) {
     downloadBuffer = await writer.getBuffer();
   }
 
-  const downloadBlob = new Blob([downloadBuffer]); // , { type: "audio/mpeg" }
+  const downloadBlob = new Blob([downloadBuffer]);
   const downloadUrl = URL.createObjectURL(downloadBlob);
 
   await downloadToFile(downloadUrl, filename);
@@ -237,6 +244,6 @@ onMessageFromTab(async (_, message) => {
   await handleDownload(downloadData);
 });
 
-browser.pageAction.onClicked.addListener(() => {
-  browser.runtime.openOptionsPage();
+onPageActionClicked(() => {
+  openOptionsPage();
 });

@@ -11,7 +11,7 @@ export const onBeforeSendHeaders = (callback: BeforeSendHeadersCallback) => {
   } else if (typeof chrome !== "undefined") {
     chrome.webRequest.onBeforeSendHeaders.addListener(callback, urlFilter, ["requestHeaders", "blocking"]);
   } else {
-    logger.logError("Browser not supported for webRequest.onBeforeSendHeaders");
+    logger.logError("Browser does not support webRequest.onBeforeSendHeaders");
   }
 };
 
@@ -23,7 +23,7 @@ export const onBeforeRequest = (callback: OnBeforeRequestCallback) => {
   } else if (typeof chrome !== "undefined") {
     chrome.webRequest.onBeforeRequest.addListener(callback, urlFilter);
   } else {
-    logger.logError("Browser not supported for webRequest.onBeforeRequest");
+    logger.logError("Browser does not support webRequest.onBeforeRequest");
   }
 };
 
@@ -47,39 +47,59 @@ export const onMessageFromTab = (callback: MessageFromTabCallback) => {
       return true;
     });
   } else {
-    logger.logError("Browser not supported for runtime.onMessage");
+    logger.logError("Browser does not support runtime.onMessage");
   }
 };
 
-export const downloadToFile = async (url: string, filename: string) => {
+export const downloadToFile = (url: string, filename: string) => {
   const downloadOptions = {
     url,
     filename,
   };
 
   if (typeof browser !== "undefined") {
-    return await browser.downloads.download(downloadOptions);
+    return browser.downloads.download(downloadOptions);
   } else if (typeof chrome !== "undefined") {
-    return await new Promise<number>((resolve) => {
+    return new Promise<number>((resolve) => {
       chrome.downloads.download(downloadOptions, (id) => resolve(id));
     });
   } else {
-    logger.logError("Browser not supported for downloads.download");
+    logger.logError("Browser does not support downloads.download");
 
     return Promise.reject();
   }
 };
 
-export const sendMessageToBackend = async (message: any) => {
+export const sendMessageToBackend = (message: any) => {
   if (typeof browser !== "undefined") {
-    return await browser.runtime.sendMessage(message);
+    return browser.runtime.sendMessage(message);
   } else if (typeof chrome !== "undefined") {
-    return await new Promise((resolve) => {
+    return new Promise((resolve) => {
       chrome.runtime.sendMessage(message, resolve);
     });
   } else {
-    logger.logError("Browser not supported for runtime.sendMessage");
+    logger.logError("Browser does not support runtime.sendMessage");
 
     return Promise.reject();
+  }
+};
+
+export const onPageActionClicked = (callback: (tabId: number) => void) => {
+  if (typeof browser !== "undefined") {
+    browser.pageAction.onClicked.addListener((tab) => callback(tab.id));
+  } else if (typeof chrome !== "undefined") {
+    chrome.pageAction.onClicked.addListener((tab) => callback(tab.id));
+  } else {
+    logger.logError("Browser does not support pageAction.onClicked");
+  }
+};
+
+export const openOptionsPage = () => {
+  if (typeof browser !== "undefined") {
+    browser.runtime.openOptionsPage();
+  } else if (typeof chrome !== "undefined") {
+    chrome.runtime.openOptionsPage();
+  } else {
+    logger.logError("Browser does not support runtime.openOptionsPage");
   }
 };
