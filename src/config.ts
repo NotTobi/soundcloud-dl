@@ -12,7 +12,7 @@ export const config: Config = {
   "download-original-version": false,
 };
 
-const configKeys = Object.keys(config);
+export const configKeys = Object.keys(config);
 
 const onStorageChanges = (changes: { [key: string]: browser.storage.StorageChange }, areaName: string) => {
   for (const configKey of configKeys) {
@@ -24,7 +24,7 @@ const onStorageChanges = (changes: { [key: string]: browser.storage.StorageChang
 
 browser.storage.onChanged.addListener(onStorageChanges);
 
-export async function initConfiguration() {
+export async function loadConfiguration() {
   try {
     const values = await browser.storage.sync.get(configKeys);
 
@@ -35,5 +35,13 @@ export async function initConfiguration() {
     }
   } catch (error) {
     configLogger.logError("Failed to get configuration from storage.sync", error);
+  }
+}
+
+export async function storeConfiguration(values: { [key: string]: any }) {
+  try {
+    await browser.storage.sync.set(values);
+  } catch (error) {
+    configLogger.logError("Failed to store configuration to storage.sync", error);
   }
 }

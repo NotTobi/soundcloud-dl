@@ -1,11 +1,9 @@
-import { configLogger, config } from "./config";
+import { configLogger, config, configKeys, loadConfiguration, storeConfiguration } from "./config";
 
-const configKeys = Object.keys(config);
-
-async function saveOptions(e) {
-  configLogger.logInfo("Saving settings...");
-
+async function saveSettings(e) {
   e.preventDefault();
+
+  configLogger.logInfo("Saving settings...");
 
   const values = configKeys.reduce((acc, cur) => {
     const elem = document.querySelector<HTMLInputElement>(`#${cur}`);
@@ -19,24 +17,24 @@ async function saveOptions(e) {
   }, {});
 
   try {
-    await browser.storage.sync.set(values);
+    await storeConfiguration(values);
   } catch (error) {
     configLogger.logError("Failed to save settings!", error);
   }
 }
 
-async function restoreOptions() {
+async function restoreSettings() {
   configLogger.logInfo("Restoring settings...");
 
   try {
-    const result = await browser.storage.sync.get(configKeys);
+    await loadConfiguration();
 
     for (const configKey of configKeys) {
       const elem = document.querySelector<HTMLInputElement>(`#${configKey}`);
 
       if (elem === null) continue;
 
-      const value = result[configKey] ?? config[configKey];
+      const value = config[configKey];
 
       if (typeof value === "boolean") elem.checked = value;
       else elem.value = value;
@@ -46,5 +44,5 @@ async function restoreOptions() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", restoreOptions);
-document.querySelector("form").addEventListener("submit", saveOptions);
+document.addEventListener("DOMContentLoaded", restoreSettings);
+document.querySelector("form").addEventListener("submit", saveSettings);
