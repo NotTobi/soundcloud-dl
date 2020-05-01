@@ -23,6 +23,7 @@ interface User {
 
 export interface Track {
   id: number;
+  duration: number; // in ms
   kind: string;
   state: string;
   title: string;

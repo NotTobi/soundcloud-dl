@@ -1,16 +1,23 @@
 import { TagWriter } from "./tagWriter";
 
 interface Atom {
-  name?: string;
   length: number;
-  offset: number;
+  name?: string;
+  offset?: number;
   children?: Atom[];
+  data?: ArrayBuffer;
 }
 
+// length(4) + name(4)
+const ATOM_HEAD_LENGTH = 8;
+// data-length(4) + data-name(4) + data-flags(4)
+const ATOM_DATA_HEAD_LENGTH = 16;
+
+const ATOM_HEADER_LENGTH = ATOM_HEAD_LENGTH + ATOM_DATA_HEAD_LENGTH;
+
 class Mp4 {
-  // Metadata resides in moov.udta.meta.ilst
-  private readonly _metadataAtoms = ["moov", "udta", "meta", "ilst"];
-  private _buffer: ArrayBuffer;
+  private readonly _metadataPath = ["moov", "udta", "meta", "ilst"];
+  private _buffer: ArrayBuffer | null;
   private _atoms: Atom[] = [];
 
   constructor(buffer: ArrayBuffer) {
@@ -18,7 +25,8 @@ class Mp4 {
   }
 
   parse() {
-    if (this._atoms.length > 0) throw new Error("Buffer already parsed.");
+    if (this._buffer === null) throw new Error("Buffer can not be null");
+    if (this._atoms.length > 0) throw new Error("Buffer already parsed");
 
     let offset = 0;
     let atom: Atom;
@@ -28,33 +36,28 @@ class Mp4 {
 
       if (!atom || atom.length < 1) break;
 
-      if (atom.name === "moov") {
-        this._atoms.push(atom);
-        break;
-      }
+      this._atoms.push(atom);
 
       offset = atom.offset + atom.length;
     }
 
-    if (this._atoms.length < 1) throw new Error("Buffer could not be parsed.");
+    if (this._atoms.length < 1) throw new Error("Buffer could not be parsed");
+  }
 
-    let curAtom = this._atoms[0];
+  setDuration(duration: number) {
+    const mvhdAtom: Atom = this._findAtom(this._atoms, ["moov", "mvhd"]);
 
-    for (let i = 1; i < this._metadataAtoms.length; i++) {
-      const curAtomName = this._metadataAtoms[i];
+    if (mvhdAtom === null) throw new Error("'mvhd' atom could not be found");
 
-      curAtom = curAtom.children?.find((atom) => atom.name === curAtomName);
+    const bufferView = new DataView(this._buffer);
 
-      if (!curAtom) throw new Error(`Could not determine '${curAtomName}' atom`);
-
-      this._atoms.push(curAtom);
-    }
-
-    this._atoms = this._atoms.reverse();
+    // version(4) + created(4) + modified(4) + timescale(4)
+    const precedingDataLength = 16;
+    bufferView.setUint32(mvhdAtom.offset + ATOM_HEAD_LENGTH + precedingDataLength, duration);
   }
 
   addMetadataAtom(name: string, data: ArrayBuffer | string) {
-    if (name.length > 4 || name.length < 1) throw new Error(`Unsupported atom name: '${name}'.`);
+    if (name.length > 4 || name.length < 1) throw new Error(`Unsupported atom name: '${name}'`);
 
     let dataBuffer: ArrayBuffer;
 
@@ -66,109 +69,135 @@ class Mp4 {
       throw new Error(`Unsupported data: '${data}'`);
     }
 
-    // determine offset
-    const [ilstAtom] = this._atoms;
+    const atom: Atom = {
+      name,
+      length: ATOM_HEADER_LENGTH + dataBuffer.byteLength,
+      data: dataBuffer,
+    };
 
-    let offset = ilstAtom.offset + 8;
+    this._insertAtom(atom, this._metadataPath);
+  }
 
-    if (ilstAtom.children.length > 0) {
-      const lastChild = ilstAtom.children[ilstAtom.children.length - 1];
+  getBlob() {
+    console.log({ atoms: this._atoms });
+
+    const buffers: Uint8Array[] = [];
+
+    // todo go through all atoms and their children
+    // recalculate length
+    // add atom buffer slices to buffers (old and new)
+
+    this._atoms = [];
+    this._buffer = null;
+
+    return new Blob(buffers);
+
+    // const bufferView = new DataView(this._buffer);
+
+    // for (const atom of this._atoms) {
+    //   if (atom.children?.length > 0) {
+    //     atom.length = 8 + atom.children.reduce((acc, cur) => acc + cur.length, 0);
+    //   }
+
+    //   if (atom.name === "meta") {
+    //     atom.length += 4;
+    //   } else if (atom.name === "stsd") {
+    //     atom.length += 8;
+    //   }
+
+    //   bufferView.setUint32(atom.offset, atom.length);
+    // }
+
+    // todo: maybe store all of the headers seperately and onlt perform one merge operation at the end
+    // const resultBuffer = new ArrayBuffer(this._buffer.byteLength + headerBuffer.byteLength + dataBuffer.byteLength);
+    // const result = new Uint8Array(resultBuffer);
+
+    // result.set(new Uint8Array(this._buffer.slice(0, offset)), 0);
+    // result.set(new Uint8Array(headerBuffer), offset);
+    // result.set(new Uint8Array(dataBuffer), offset + headerBuffer.byteLength);
+    // result.set(new Uint8Array(this._buffer.slice(offset)), offset + headerBuffer.byteLength + dataBuffer.byteLength);
+
+    // this._buffer = resultBuffer;
+
+    // return this._buffer;
+  }
+
+  private _insertAtom(atom: Atom, path: string[]) {
+    // todo handle case where path is empty, e.g. add as root atom
+
+    const parentAtom = this._findAtom(this._atoms, path);
+
+    if (parentAtom === null) throw new Error(`Parent atom at path '${path.join(" > ")}' could not be found`);
+
+    if (parentAtom.children === undefined) {
+      parentAtom.children = this._readChildAtoms(parentAtom);
+    }
+
+    let offset = parentAtom.offset + ATOM_HEAD_LENGTH;
+
+    if (parentAtom.children.length > 0) {
+      const lastChild = parentAtom.children[parentAtom.children.length - 1];
 
       offset = lastChild.offset + lastChild.length;
     }
 
-    const atomHeaderLength = 24;
-    const atomLength = atomHeaderLength + dataBuffer.byteLength;
+    atom.offset = offset;
 
-    const atom: Atom = {
-      name,
-      length: atomLength,
-      offset,
-      children: [],
-    };
-
-    ilstAtom.children.push(atom);
-
-    const headerBuffer = new ArrayBuffer(atomHeaderLength);
-    const headerBufferView = new DataView(headerBuffer);
-
-    // length at 0, length = 4
-    headerBufferView.setUint32(0, atomLength);
-
-    // name at 4, length = 4
-    for (let i = 0; i < name.length; i++) {
-      const char = name.charCodeAt(i);
-      headerBufferView.setUint8(4 + i, char);
-    }
-
-    // data length at 8, length = 4
-    headerBufferView.setUint32(8, dataBuffer.byteLength + 16);
-
-    // data name at 12, length = 4
-    const dataName = "data";
-    for (let i = 0; i < dataName.length; i++) {
-      const char = dataName.charCodeAt(i);
-      headerBufferView.setUint8(12 + i, char);
-    }
-
-    let atomFlag = 1;
-    if (name === "covr") atomFlag = 13;
-
-    // data flags at 16, length = 4
-    headerBufferView.setUint32(16, atomFlag);
-
-    const resultBuffer = new ArrayBuffer(this._buffer.byteLength + headerBuffer.byteLength + dataBuffer.byteLength);
-    const result = new Uint8Array(resultBuffer);
-
-    result.set(new Uint8Array(this._buffer.slice(0, offset)), 0);
-    result.set(new Uint8Array(headerBuffer), offset);
-    result.set(new Uint8Array(dataBuffer), offset + headerBuffer.byteLength);
-    result.set(new Uint8Array(this._buffer.slice(offset)), offset + headerBuffer.byteLength + dataBuffer.byteLength);
-
-    this._buffer = resultBuffer;
+    parentAtom.children.push(atom);
   }
 
-  getBuffer() {
-    const bufferView = new DataView(this._buffer);
+  private _findAtom(atoms: Atom[], path: string[]): Atom | null {
+    if (!path || path.length < 1) throw new Error("Path can not be empty");
 
-    for (const atom of this._atoms) {
-      if (atom.children?.length > 0) {
-        atom.length = 8 + atom.children.reduce((acc, cur) => acc + cur.length, 0);
-      }
+    const curPath = [...path];
+    const curName = curPath.shift();
+    const curElem = atoms.find((i) => i.name === curName);
 
-      if (atom.name === "meta") {
-        atom.length += 4;
-      } else if (atom.name === "stsd") {
-        atom.length += 8;
-      }
+    if (curPath.length < 1) return curElem;
 
-      bufferView.setUint32(atom.offset, atom.length);
+    if (curElem.children === undefined) {
+      curElem.children = this._readChildAtoms(curElem);
     }
 
-    return this._buffer;
+    if (curElem.children.length < 1) return null;
+
+    return this._findAtom(curElem.children, curPath);
   }
 
-  private _getBufferFromString(input: string): ArrayBuffer {
-    // return new TextEncoder().encode(input).buffer;
+  private _readChildAtoms(atom: Atom): Atom[] {
+    const children: Atom[] = [];
 
-    const buffer = new ArrayBuffer(input.length);
-    const bufferView = new DataView(buffer);
+    const childEnd = atom.offset + atom.length;
+    let childOffset = atom.offset + ATOM_HEAD_LENGTH;
 
-    for (let i = 0; i < input.length; i++) {
-      const char = input.charCodeAt(i);
-      bufferView.setUint8(i, char);
+    if (atom.name === "meta") {
+      childOffset += 4;
+    } else if (atom.name === "stsd") {
+      childOffset += 8;
     }
 
-    return buffer;
+    while (true) {
+      if (childOffset >= childEnd) break;
+
+      const childAtom = this._readAtom(childOffset);
+
+      if (!childAtom || childAtom.length < 1) break;
+
+      childOffset = childAtom.offset + childAtom.length;
+
+      children.push(childAtom);
+    }
+
+    return children;
   }
 
   private _readAtom(offset: number): Atom {
     const begin = offset;
-    const end = offset + 8;
+    const end = offset + ATOM_HEAD_LENGTH;
 
     const buffer = this._buffer.slice(begin, end);
 
-    if (buffer.byteLength < 8) {
+    if (buffer.byteLength < ATOM_HEAD_LENGTH) {
       return {
         length: 0,
         offset,
@@ -177,48 +206,87 @@ class Mp4 {
 
     const dataView = new DataView(buffer);
 
-    const length = dataView.getUint32(0, false);
+    let length = dataView.getUint32(0, false);
 
     let name = "";
     for (let i = 0; i < 4; i++) {
       name += String.fromCharCode(dataView.getUint8(4 + i));
     }
 
-    if (this._metadataAtoms.includes(name)) {
-      const children: Atom[] = [];
-      let childOffset = offset + 8;
-      const childEnd = offset + length;
+    if (name === "meta") {
+      length += 4;
+    } else if (name === "stsd") {
+      length += 8;
+    }
 
-      if (name === "meta") {
-        childOffset += 4;
-      } else if (name === "stsd") {
-        childOffset += 8;
-      }
+    return {
+      name,
+      length,
+      offset,
+    };
+  }
 
-      while (true) {
-        if (childOffset >= childEnd) break;
+  private _getHeaderBufferFromAtom(atom: Atom) {
+    if (!atom || atom.length < 1 || !atom.name || !atom.data)
+      throw new Error("Can not compute header buffer for this atom");
 
-        const childAtom = this._readAtom(childOffset);
+    const headerBuffer = new ArrayBuffer(ATOM_HEADER_LENGTH);
+    const headerBufferView = new DataView(headerBuffer);
 
-        if (!childAtom || childAtom.length < 1) break;
+    // length at 0, length = 4
+    headerBufferView.setUint32(0, atom.length);
 
-        childOffset = childAtom.offset + childAtom.length;
+    // name at 4, length = 4
+    const nameChars = this._getCharCodes(atom.name);
+    for (let i = 0; i < nameChars.length; i++) {
+      headerBufferView.setUint8(4 + i, nameChars[i]);
+    }
 
-        children.push(childAtom);
-      }
+    // data length at 8, length = 4
+    headerBufferView.setUint32(8, ATOM_DATA_HEAD_LENGTH + atom.data.byteLength);
 
-      return {
-        name,
-        length,
-        offset,
-        children,
-      };
-    } else {
-      return {
-        name,
-        length,
-        offset,
-      };
+    // data name at 12, length = 4
+    const dataNameChars = this._getCharCodes("data");
+    for (let i = 0; i < dataNameChars.length; i++) {
+      headerBufferView.setUint8(12 + i, dataNameChars[i]);
+    }
+
+    // data flags at 16, length = 4
+    headerBufferView.setUint32(16, this._getFlags(name));
+
+    return headerBuffer;
+  }
+
+  private _getBufferFromString(input: string): ArrayBuffer {
+    // return new TextEncoder().encode(input).buffer;
+
+    const buffer = new ArrayBuffer(input.length);
+    const bufferView = new DataView(buffer);
+    const chars = this._getCharCodes(input);
+
+    for (let i = 0; i < chars.length; i++) {
+      bufferView.setUint8(i, chars[i]);
+    }
+
+    return buffer;
+  }
+
+  private _getCharCodes(input: string) {
+    const chars: number[] = [];
+
+    for (let i = 0; i < input.length; i++) {
+      chars.push(input.charCodeAt(i));
+    }
+
+    return chars;
+  }
+
+  private _getFlags(name: string) {
+    switch (name) {
+      case "covr":
+        return 13;
+      default:
+        return 1;
     }
   }
 }
@@ -253,7 +321,11 @@ export class Mp4TagWriter implements TagWriter {
     this._mp4.addMetadataAtom("covr", artworkBuffer);
   }
 
-  getBuffer() {
-    return Promise.resolve(this._mp4.getBuffer());
+  setDuration(duration: number) {
+    this._mp4.setDuration(duration);
+  }
+
+  getBlob() {
+    return this._mp4.getBlob();
   }
 }

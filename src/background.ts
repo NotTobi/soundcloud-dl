@@ -26,6 +26,7 @@ function sanitizeFileName(input: string) {
 
 interface DownloadData {
   title: string;
+  duration: number;
   username: string;
   avatarUrl: string;
   artworkUrl: string;
@@ -74,12 +75,16 @@ async function handleDownload(data: DownloadData) {
   let writer: TagWriter;
 
   if (data.fileExtension === "m4a") {
-    writer = new Mp4TagWriter(streamBuffer);
+    const mp4Writer = new Mp4TagWriter(streamBuffer);
+
+    mp4Writer.setDuration(data.duration);
+
+    writer = mp4Writer;
   } else if (data.fileExtension === "mp3") {
     writer = new Mp3TagWriter(streamBuffer);
   }
 
-  let downloadBuffer: ArrayBuffer = streamBuffer;
+  let downloadBlob: Blob;
 
   if (writer) {
     writer.setTitle(titleString);
@@ -99,10 +104,11 @@ async function handleDownload(data: DownloadData) {
       logger.logWarn("Skipping download of Artwork");
     }
 
-    downloadBuffer = await writer.getBuffer();
+    downloadBlob = writer.getBlob();
+  } else {
+    downloadBlob = new Blob([streamBuffer]);
   }
 
-  const downloadBlob = new Blob([downloadBuffer]);
   const downloadUrl = URL.createObjectURL(downloadBlob);
 
   await downloadToFile(downloadUrl, filename);
@@ -201,6 +207,8 @@ onMessageFromTab(async (_, message) => {
     return;
   }
 
+  console.log({ track });
+
   let stream: { url: string; extension?: string };
 
   if (config["download-original-version"] && track.downloadable && track.has_downloads_left) {
@@ -233,6 +241,7 @@ onMessageFromTab(async (_, message) => {
   }
 
   const downloadData: DownloadData = {
+    duration: track.duration,
     streamUrl: stream.url,
     fileExtension: stream.extension,
     title: track.title,

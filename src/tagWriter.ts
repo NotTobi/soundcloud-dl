@@ -4,5 +4,5 @@ export interface TagWriter {
   setAlbum: (album: string) => void;
   setComment: (comment: string) => void;
   setArtwork: (artworkBuffer: ArrayBuffer) => void;
-  getBuffer: () => Promise<ArrayBuffer>;
+  getBlob: () => Blob;
 }
