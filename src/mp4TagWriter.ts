@@ -15,6 +15,11 @@ const ATOM_DATA_HEAD_LENGTH = 16;
 
 const ATOM_HEADER_LENGTH = ATOM_HEAD_LENGTH + ATOM_DATA_HEAD_LENGTH;
 
+interface AtomLevel {
+  parent: Atom;
+  childIndex: number;
+}
+
 class Mp4 {
   private readonly _metadataPath = ["moov", "udta", "meta", "ilst"];
   private _buffer: ArrayBuffer | null;
@@ -79,47 +84,78 @@ class Mp4 {
   }
 
   getBlob() {
+    const buffers: ArrayBuffer[] = [];
+
+    // we don't change the offsets, since it would add needless complexity without benefit
+    for (const atom of this._atoms) {
+      if (!atom.children) {
+        // nothing has been added or removed
+
+        const slice = this._buffer.slice(atom.offset, atom.offset + atom.length);
+
+        buffers.push(slice);
+
+        continue;
+      }
+
+      atom.length = ATOM_HEAD_LENGTH;
+
+      const levels: AtomLevel[] = [{ parent: atom, childIndex: 0 }];
+      let levelIndex = 0;
+
+      while (true) {
+        const { parent, childIndex } = levels[levelIndex];
+
+        if (childIndex >= parent.children.length) {
+          // move one level up
+          levelIndex--;
+          levels.pop();
+
+          if (levelIndex < 0) break;
+
+          const newParent = levels[levelIndex].parent;
+
+          newParent.length += parent.length;
+
+          levels[levelIndex].childIndex++;
+
+          continue;
+        }
+
+        const child = parent.children[childIndex];
+
+        if (child.children) {
+          // move one level down
+          child.length = ATOM_HEAD_LENGTH;
+          levels.push({ parent: child, childIndex: 0 });
+          levelIndex++;
+          continue;
+        }
+
+        parent.length += child.length;
+
+        // move one child ahead
+        levels[levelIndex].childIndex++;
+      }
+
+      // const parentHeader = this._buffer.slice(atom.offset, atom.offset + ATOM_HEAD_LENGTH);
+      // buffers.push(parentHeader);
+      // for (const child of atom.children) {
+      //   if (child.data) {
+      //     const headerBuffer = this._getHeaderBufferFromAtom(child);
+      //     buffers.push(headerBuffer);
+      //     buffers.push(child.data);
+      //   }else {
+      //   }
+      // }
+    }
+
     console.log({ atoms: this._atoms });
-
-    const buffers: Uint8Array[] = [];
-
-    // todo go through all atoms and their children
-    // recalculate length
-    // add atom buffer slices to buffers (old and new)
 
     this._atoms = [];
     this._buffer = null;
 
     return new Blob(buffers);
-
-    // const bufferView = new DataView(this._buffer);
-
-    // for (const atom of this._atoms) {
-    //   if (atom.children?.length > 0) {
-    //     atom.length = 8 + atom.children.reduce((acc, cur) => acc + cur.length, 0);
-    //   }
-
-    //   if (atom.name === "meta") {
-    //     atom.length += 4;
-    //   } else if (atom.name === "stsd") {
-    //     atom.length += 8;
-    //   }
-
-    //   bufferView.setUint32(atom.offset, atom.length);
-    // }
-
-    // todo: maybe store all of the headers seperately and onlt perform one merge operation at the end
-    // const resultBuffer = new ArrayBuffer(this._buffer.byteLength + headerBuffer.byteLength + dataBuffer.byteLength);
-    // const result = new Uint8Array(resultBuffer);
-
-    // result.set(new Uint8Array(this._buffer.slice(0, offset)), 0);
-    // result.set(new Uint8Array(headerBuffer), offset);
-    // result.set(new Uint8Array(dataBuffer), offset + headerBuffer.byteLength);
-    // result.set(new Uint8Array(this._buffer.slice(offset)), offset + headerBuffer.byteLength + dataBuffer.byteLength);
-
-    // this._buffer = resultBuffer;
-
-    // return this._buffer;
   }
 
   private _insertAtom(atom: Atom, path: string[]) {
@@ -199,7 +235,7 @@ class Mp4 {
 
     if (buffer.byteLength < ATOM_HEAD_LENGTH) {
       return {
-        length: 0,
+        length: buffer.byteLength,
         offset,
       };
     }
