@@ -4,8 +4,6 @@
 
 If you're on soundcloud.com, there should be an icon of this extension next to the addressbar. Click on it to get to the configuration section.
 
-Once there you can configure, if you want to download the higher quality audio versions or not (only applies to GO+ users).
-
 ## Missing features
 
 - Download playlists/albums/favorites
@@ -15,6 +13,8 @@ If you want to help implement one of those features, go right ahead! :)
 
 #### Developer TODOs
 
+- set track length for m4a files explicitly (issues with VLC an other audio players)
+- determine file extension of original audio file
 - add download support for hls only files
 - cross-browser compatibility of `browser.storage.sync` and various other `browser.`-only methods at the moment
 - better error handling -> also displaying errors to the user

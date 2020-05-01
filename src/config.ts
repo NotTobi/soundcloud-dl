@@ -4,10 +4,12 @@ const logger = Logger.create("Config");
 
 interface Config {
   "download-hq-version": boolean;
+  "download-original-version": boolean;
 }
 
 export const config: Config = {
   "download-hq-version": true,
+  "download-original-version": false,
 };
 
 const configKeys = Object.keys(config);

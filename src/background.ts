@@ -196,7 +196,7 @@ onMessageFromTab(async (_, message) => {
 
   let stream: { url: string; extension?: string };
 
-  if (track.downloadable && track.has_downloads_left) {
+  if (config["download-original-version"] && track.downloadable && track.has_downloads_left) {
     const originalDownloadUrl = await soundcloudApi.getOriginalDownloadUrl(track.id);
 
     if (originalDownloadUrl) {
