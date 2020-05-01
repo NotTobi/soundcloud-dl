@@ -29,12 +29,9 @@
     "scripts": ["js/background.js"]
   },
   "options_ui": {
-    "page": "options.html",
-    "browser_style": false,
-    "chrome_style": true
+    "page": "options.html"
   },
   "page_action": {
-    "browser_style": true,
     "default_icon": {
       "48": "icons/icon-48.png",
       "64": "icons/icon-64.png",
@@ -44,6 +41,7 @@
     "default_title": "Soundcloud Downloader",
     "show_matches": ["*://*.soundcloud.com/*"]
   },
+  // this needs to be removed, when publishing to chrome, since it is not supported!
   "browser_specific_settings": {
     "gecko": {
       "id": "{c7a839e7-7086-4021-8176-1cfcb7f169ce}"

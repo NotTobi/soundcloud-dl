@@ -60,9 +60,7 @@ export const downloadToFile = (url: string, filename: string) => {
   if (typeof browser !== "undefined") {
     return browser.downloads.download(downloadOptions);
   } else if (typeof chrome !== "undefined") {
-    return new Promise<number>((resolve) => {
-      chrome.downloads.download(downloadOptions, (id) => resolve(id));
-    });
+    return new Promise<number>((resolve) => chrome.downloads.download(downloadOptions, (id) => resolve(id)));
   } else {
     logger.logError("Browser does not support downloads.download");
 
@@ -74,9 +72,7 @@ export const sendMessageToBackend = (message: any) => {
   if (typeof browser !== "undefined") {
     return browser.runtime.sendMessage(message);
   } else if (typeof chrome !== "undefined") {
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage(message, resolve);
-    });
+    return new Promise((resolve) => chrome.runtime.sendMessage(message, resolve));
   } else {
     logger.logError("Browser does not support runtime.sendMessage");
 
@@ -103,3 +99,43 @@ export const openOptionsPage = () => {
     logger.logError("Browser does not support runtime.openOptionsPage");
   }
 };
+
+export interface StorageChange {
+  newValue?: any;
+  oldValue?: any;
+}
+
+export const onStorageChanged = (callback: (changes: { [key: string]: StorageChange }, areaName: string) => void) => {
+  if (typeof browser !== "undefined") {
+    browser.storage.onChanged.addListener(callback);
+  } else if (typeof chrome !== "undefined") {
+    chrome.storage.onChanged.addListener(callback);
+  } else {
+    logger.logError("Browser does not support storage.onChanged");
+  }
+};
+
+export const setSyncStorage = (values: { [key: string]: any }) => {
+  if (typeof browser !== "undefined") {
+    return browser.storage.sync.set(values);
+  } else if (typeof chrome !== "undefined") {
+    return new Promise<void>((resolve) => chrome.storage.sync.set(values, resolve));
+  } else {
+    logger.logError("Browser does not support storage.sync.set");
+
+    return Promise.reject();
+  }
+};
+
+export const getSyncStorage = (keys?: string | string[]) => {
+  if (typeof browser !== "undefined") {
+    return browser.storage.sync.get(keys);
+  } else if (typeof chrome !== "undefined") {
+    return new Promise<{ [key: string]: any }>((resolve) => chrome.storage.sync.get(keys, resolve));
+  } else {
+    logger.logError("Browser does not support storage.sync.get");
+
+    return Promise.reject();
+  }
+};
+//

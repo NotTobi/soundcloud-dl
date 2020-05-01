@@ -13,10 +13,9 @@ If you want to help implement one of those features, go right ahead! :)
 
 #### Developer TODOs
 
-- set track length for m4a files explicitly (issues with VLC an other audio players)
 - determine file extension of original audio file
+- set track length for m4a files explicitly (issues with VLC an other audio players)
 - add download support for hls only files
-- cross-browser compatibility of `browser.storage.sync` and various other `browser.`-only methods at the moment
 - better error handling -> also displaying errors to the user
 - cleanup `background.ts`
 - cleanup `mp4TagWriter.ts` and try to improve performance

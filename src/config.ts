@@ -1,4 +1,5 @@
 import { Logger } from "./logger";
+import { onStorageChanged, StorageChange, setSyncStorage, getSyncStorage } from "./compatibilityStubs";
 
 export const configLogger = Logger.create("Config");
 
@@ -14,7 +15,7 @@ export const config: Config = {
 
 export const configKeys = Object.keys(config);
 
-const onStorageChanges = (changes: { [key: string]: browser.storage.StorageChange }, areaName: string) => {
+const handleStorageChanged = (changes: { [key: string]: StorageChange }, areaName: string) => {
   for (const configKey of configKeys) {
     if (!changes[configKey]) continue;
 
@@ -22,11 +23,11 @@ const onStorageChanges = (changes: { [key: string]: browser.storage.StorageChang
   }
 };
 
-browser.storage.onChanged.addListener(onStorageChanges);
+onStorageChanged(handleStorageChanged);
 
 export async function loadConfiguration() {
   try {
-    const values = await browser.storage.sync.get(configKeys);
+    const values = await getSyncStorage(configKeys);
 
     for (const configKey of configKeys) {
       if (values[configKey] == null) continue;
@@ -40,7 +41,7 @@ export async function loadConfiguration() {
 
 export async function storeConfiguration(values: { [key: string]: any }) {
   try {
-    await browser.storage.sync.set(values);
+    await setSyncStorage(values);
   } catch (error) {
     configLogger.logError("Failed to store configuration to storage.sync", error);
   }
