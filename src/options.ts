@@ -1,34 +1,48 @@
+import { configLogger, config } from "./config";
+
+const configKeys = Object.keys(config);
+
 async function saveOptions(e) {
-  console.log("Saving settings...");
+  configLogger.logInfo("Saving settings...");
 
   e.preventDefault();
 
-  const downloadHqVersion = document.querySelector<HTMLInputElement>("#download-hq-version").checked;
-  const downloadOriginalVersion = document.querySelector<HTMLInputElement>("#download-original-version").checked;
+  const values = configKeys.reduce((acc, cur) => {
+    const elem = document.querySelector<HTMLInputElement>(`#${cur}`);
+
+    if (elem !== null) {
+      if (elem.type === "checkbox") acc[cur] = elem.checked;
+      else acc[cur] = elem.value;
+    }
+
+    return acc;
+  }, {});
 
   try {
-    await browser.storage.sync.set({
-      "download-hq-version": downloadHqVersion,
-      "download-original-version": downloadOriginalVersion,
-    });
+    await browser.storage.sync.set(values);
   } catch (error) {
-    console.error("Failed to save settings!", error);
+    configLogger.logError("Failed to save settings!", error);
   }
 }
 
 async function restoreOptions() {
-  console.log("Restoring settings...");
+  configLogger.logInfo("Restoring settings...");
 
   try {
-    const result = await browser.storage.sync.get(["download-hq-version", "download-original-version"]);
+    const result = await browser.storage.sync.get(configKeys);
 
-    const downloadHqVersion = result["download-hq-version"] ?? true;
-    const downloadOriginalVersion = result["download-original-version"] ?? false;
+    for (const configKey of configKeys) {
+      const elem = document.querySelector<HTMLInputElement>(`#${configKey}`);
 
-    document.querySelector<HTMLInputElement>("#download-hq-version").checked = downloadHqVersion;
-    document.querySelector<HTMLInputElement>("#download-original-version").checked = downloadOriginalVersion;
+      if (elem === null) continue;
+
+      const value = result[configKey] ?? config[configKey];
+
+      if (typeof value === "boolean") elem.checked = value;
+      else elem.value = value;
+    }
   } catch (error) {
-    console.error("Failed to restore settings!", error);
+    configLogger.logError("Failed to restore settings!", error);
   }
 }
 

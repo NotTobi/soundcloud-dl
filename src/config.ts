@@ -1,6 +1,6 @@
 import { Logger } from "./logger";
 
-const logger = Logger.create("Config");
+export const configLogger = Logger.create("Config");
 
 interface Config {
   "download-hq-version": boolean;
@@ -34,6 +34,6 @@ export async function initConfiguration() {
       config[configKey] = values[configKey];
     }
   } catch (error) {
-    logger.logError("Failed to get configuration from storage.sync", error);
+    configLogger.logError("Failed to get configuration from storage.sync", error);
   }
 }
