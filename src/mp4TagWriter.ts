@@ -8,6 +8,12 @@ interface Atom {
   data?: ArrayBuffer;
 }
 
+interface AtomLevel {
+  parent: Atom;
+  offset: number;
+  childIndex: number;
+}
+
 // length(4) + name(4)
 const ATOM_HEAD_LENGTH = 8;
 // data-length(4) + data-name(4) + data-flags(4)
@@ -15,19 +21,15 @@ const ATOM_DATA_HEAD_LENGTH = 16;
 
 const ATOM_HEADER_LENGTH = ATOM_HEAD_LENGTH + ATOM_DATA_HEAD_LENGTH;
 
-interface AtomLevel {
-  parent: Atom;
-  offset: number;
-  childIndex: number;
-}
-
 class Mp4 {
   private readonly _metadataPath = ["moov", "udta", "meta", "ilst"];
   private _buffer: ArrayBuffer | null;
+  private _bufferView: DataView | null;
   private _atoms: Atom[] = [];
 
   constructor(buffer: ArrayBuffer) {
     this._buffer = buffer;
+    this._bufferView = new DataView(buffer);
   }
 
   parse() {
@@ -55,11 +57,9 @@ class Mp4 {
 
     if (mvhdAtom === null) throw new Error("'mvhd' atom could not be found");
 
-    const bufferView = new DataView(this._buffer);
-
     // version(4) + created(4) + modified(4) + timescale(4)
     const precedingDataLength = 16;
-    bufferView.setUint32(mvhdAtom.offset + ATOM_HEAD_LENGTH + precedingDataLength, duration);
+    this._bufferView.setUint32(mvhdAtom.offset + ATOM_HEAD_LENGTH + precedingDataLength, duration);
   }
 
   addMetadataAtom(name: string, data: ArrayBuffer | string) {
@@ -85,7 +85,6 @@ class Mp4 {
   }
 
   getBlob() {
-    const bufferView = new DataView(this._buffer);
     const buffers: ArrayBuffer[] = [];
     let bufferIndex = 0;
 
@@ -113,31 +112,27 @@ class Mp4 {
           levelIndex--;
           levels.pop();
 
+          let parentHeadLength = ATOM_HEAD_LENGTH;
           if (parent.name === "meta") {
             parent.length += 4;
+            parentHeadLength += 4;
           } else if (parent.name === "stsd") {
             parent.length += 8;
+            parentHeadLength += 8;
           }
 
           // set length of parent in buffer
-          bufferView.setUint32(parent.offset, parent.length);
-
-          let parentHeadLength = ATOM_HEAD_LENGTH;
-          if (parent.name === "meta") {
-            parentHeadLength += 4;
-          } else if (parent.name === "stsd") {
-            parentHeadLength += 8;
-          }
+          this._bufferView.setUint32(parent.offset, parent.length);
 
           const parentHeader = this._buffer.slice(parent.offset, parent.offset + parentHeadLength);
           buffers.splice(offset, 0, parentHeader);
 
+          // we completed the last parent - exit
           if (levelIndex < 0) break;
 
+          // add our current parents length to new parent and move childIndex of new parent one ahead
           const newParent = levels[levelIndex].parent;
-
           newParent.length += parent.length;
-
           levels[levelIndex].childIndex++;
 
           continue;
@@ -152,10 +147,12 @@ class Mp4 {
           levelIndex++;
           continue;
         } else if (child.data) {
+          // add new data to buffer
           const headerBuffer = this._getHeaderBufferFromAtom(child);
           buffers.push(headerBuffer);
           buffers.push(child.data);
         } else {
+          // add entire child to buffer
           const slice = this._buffer.slice(child.offset, child.offset + child.length);
           buffers.push(slice);
         }
@@ -169,15 +166,15 @@ class Mp4 {
       }
     }
 
+    this._bufferView = null;
     this._buffer = null;
     this._atoms = [];
 
     return new Blob(buffers);
   }
 
+  // todo handle case where path is empty, e.g. add as root atom
   private _insertAtom(atom: Atom, path: string[]) {
-    // todo handle case where path is empty, e.g. add as root atom
-
     const parentAtom = this._findAtom(this._atoms, path);
 
     if (parentAtom === null) throw new Error(`Parent atom at path '${path.join(" > ")}' could not be found`);
