@@ -57,15 +57,40 @@ export const downloadToFile = (url: string, filename: string) => {
     filename,
   };
 
-  if (typeof browser !== "undefined") {
-    return browser.downloads.download(downloadOptions);
-  } else if (typeof chrome !== "undefined") {
-    return new Promise<number>((resolve) => chrome.downloads.download(downloadOptions, (id) => resolve(id)));
-  } else {
-    logger.logError("Browser does not support downloads.download");
+  return new Promise(async (resolve, reject) => {
+    if (typeof browser !== "undefined") {
+      const downloadId = await browser.downloads.download(downloadOptions);
 
-    return Promise.reject();
-  }
+      const onChangedHandler = (delta: { id: number; state?: { current?: string } }) => {
+        if (delta.id === downloadId) {
+          if (delta.state?.current === "complete") resolve();
+          if (delta.state?.current === "interrupted") reject("Download was interrupted");
+
+          browser.downloads.onChanged.removeListener(onChangedHandler);
+        }
+      };
+
+      browser.downloads.onChanged.addListener(onChangedHandler);
+    } else if (typeof chrome !== "undefined") {
+      let downloadId;
+
+      const onChangedHandler = (delta: { id: number; state?: { current?: string } }) => {
+        if (delta.id === downloadId) {
+          if (delta.state?.current === "complete") resolve();
+          if (delta.state?.current === "interrupted") reject("Download was interrupted");
+
+          chrome.downloads.onChanged.removeListener(onChangedHandler);
+        }
+      };
+
+      chrome.downloads.download(downloadOptions, (id) => {
+        downloadId = id;
+        chrome.downloads.onChanged.addListener(onChangedHandler);
+      });
+    } else {
+      return Promise.reject("Browser does not support downloads.download");
+    }
+  });
 };
 
 export const sendMessageToBackend = (message: any) => {
@@ -74,9 +99,7 @@ export const sendMessageToBackend = (message: any) => {
   } else if (typeof chrome !== "undefined") {
     return new Promise((resolve) => chrome.runtime.sendMessage(message, resolve));
   } else {
-    logger.logError("Browser does not support runtime.sendMessage");
-
-    return Promise.reject();
+    return Promise.reject("Browser does not support runtime.sendMessage");
   }
 };
 
@@ -121,9 +144,7 @@ export const setSyncStorage = (values: { [key: string]: any }) => {
   } else if (typeof chrome !== "undefined") {
     return new Promise<void>((resolve) => chrome.storage.sync.set(values, resolve));
   } else {
-    logger.logError("Browser does not support storage.sync.set");
-
-    return Promise.reject();
+    return Promise.reject("Browser does not support storage.sync.set");
   }
 };
 
@@ -133,9 +154,7 @@ export const getSyncStorage = (keys?: string | string[]) => {
   } else if (typeof chrome !== "undefined") {
     return new Promise<{ [key: string]: any }>((resolve) => chrome.storage.sync.get(keys, resolve));
   } else {
-    logger.logError("Browser does not support storage.sync.get");
-
-    return Promise.reject();
+    return Promise.reject("Browser does not support storage.sync.get");
   }
 };
 
@@ -145,9 +164,7 @@ export const setLocalStorage = (values: { [key: string]: any }) => {
   } else if (typeof chrome !== "undefined") {
     return new Promise<void>((resolve) => chrome.storage.local.set(values, resolve));
   } else {
-    logger.logError("Browser does not support storage.local.set");
-
-    return Promise.reject();
+    return Promise.reject("Browser does not support storage.local.set");
   }
 };
 
@@ -157,8 +174,6 @@ export const getLocalStorage = (keys?: string | string[]) => {
   } else if (typeof chrome !== "undefined") {
     return new Promise<{ [key: string]: any }>((resolve) => chrome.storage.local.get(keys, resolve));
   } else {
-    logger.logError("Browser does not support storage.local.get");
-
-    return Promise.reject();
+    return Promise.reject("Browser does not support storage.local.get");
   }
 };

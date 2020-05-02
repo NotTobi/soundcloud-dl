@@ -136,8 +136,7 @@ async function handleDownload(data: DownloadData) {
 
   logger.logInfo(`Successfully downloaded '${filename}'!`);
 
-  // todo: first do this when the download is completed
-  // URL.revokeObjectURL(downloadUrl);
+  URL.revokeObjectURL(downloadUrl);
 }
 
 function getProgressiveStreamUrl(details: Track): string | null {
