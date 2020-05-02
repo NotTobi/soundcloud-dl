@@ -207,8 +207,6 @@ onMessageFromTab(async (_, message) => {
     return;
   }
 
-  console.log({ track });
-
   let stream: { url: string; extension?: string };
 
   if (config["download-original-version"] && track.downloadable && track.has_downloads_left) {

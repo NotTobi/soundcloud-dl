@@ -17,6 +17,7 @@ const ATOM_HEADER_LENGTH = ATOM_HEAD_LENGTH + ATOM_DATA_HEAD_LENGTH;
 
 interface AtomLevel {
   parent: Atom;
+  offset: number;
   childIndex: number;
 }
 
@@ -84,32 +85,52 @@ class Mp4 {
   }
 
   getBlob() {
+    const bufferView = new DataView(this._buffer);
     const buffers: ArrayBuffer[] = [];
+    let bufferIndex = 0;
 
     // we don't change the offsets, since it would add needless complexity without benefit
     for (const atom of this._atoms) {
       if (!atom.children) {
         // nothing has been added or removed
-
         const slice = this._buffer.slice(atom.offset, atom.offset + atom.length);
-
         buffers.push(slice);
+        bufferIndex++;
 
         continue;
       }
 
       atom.length = ATOM_HEAD_LENGTH;
 
-      const levels: AtomLevel[] = [{ parent: atom, childIndex: 0 }];
+      const levels: AtomLevel[] = [{ parent: atom, offset: bufferIndex, childIndex: 0 }];
       let levelIndex = 0;
 
       while (true) {
-        const { parent, childIndex } = levels[levelIndex];
+        const { parent, offset, childIndex } = levels[levelIndex];
 
         if (childIndex >= parent.children.length) {
           // move one level up
           levelIndex--;
           levels.pop();
+
+          if (parent.name === "meta") {
+            parent.length += 4;
+          } else if (parent.name === "stsd") {
+            parent.length += 8;
+          }
+
+          // set length of parent in buffer
+          bufferView.setUint32(parent.offset, parent.length);
+
+          let parentHeadLength = ATOM_HEAD_LENGTH;
+          if (parent.name === "meta") {
+            parentHeadLength += 4;
+          } else if (parent.name === "stsd") {
+            parentHeadLength += 8;
+          }
+
+          const parentHeader = this._buffer.slice(parent.offset, parent.offset + parentHeadLength);
+          buffers.splice(offset, 0, parentHeader);
 
           if (levelIndex < 0) break;
 
@@ -127,33 +148,29 @@ class Mp4 {
         if (child.children) {
           // move one level down
           child.length = ATOM_HEAD_LENGTH;
-          levels.push({ parent: child, childIndex: 0 });
+          levels.push({ parent: child, offset: bufferIndex, childIndex: 0 });
           levelIndex++;
           continue;
+        } else if (child.data) {
+          const headerBuffer = this._getHeaderBufferFromAtom(child);
+          buffers.push(headerBuffer);
+          buffers.push(child.data);
+        } else {
+          const slice = this._buffer.slice(child.offset, child.offset + child.length);
+          buffers.push(slice);
         }
+
+        bufferIndex++;
 
         parent.length += child.length;
 
         // move one child ahead
         levels[levelIndex].childIndex++;
       }
-
-      // const parentHeader = this._buffer.slice(atom.offset, atom.offset + ATOM_HEAD_LENGTH);
-      // buffers.push(parentHeader);
-      // for (const child of atom.children) {
-      //   if (child.data) {
-      //     const headerBuffer = this._getHeaderBufferFromAtom(child);
-      //     buffers.push(headerBuffer);
-      //     buffers.push(child.data);
-      //   }else {
-      //   }
-      // }
     }
 
-    console.log({ atoms: this._atoms });
-
-    this._atoms = [];
     this._buffer = null;
+    this._atoms = [];
 
     return new Blob(buffers);
   }
@@ -170,6 +187,12 @@ class Mp4 {
     }
 
     let offset = parentAtom.offset + ATOM_HEAD_LENGTH;
+
+    if (parentAtom.name === "meta") {
+      offset += 4;
+    } else if (parentAtom.name === "stsd") {
+      offset += 8;
+    }
 
     if (parentAtom.children.length > 0) {
       const lastChild = parentAtom.children[parentAtom.children.length - 1];
@@ -247,12 +270,6 @@ class Mp4 {
     let name = "";
     for (let i = 0; i < 4; i++) {
       name += String.fromCharCode(dataView.getUint8(4 + i));
-    }
-
-    if (name === "meta") {
-      length += 4;
-    } else if (name === "stsd") {
-      length += 8;
     }
 
     return {
