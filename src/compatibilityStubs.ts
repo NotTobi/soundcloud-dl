@@ -138,4 +138,27 @@ export const getSyncStorage = (keys?: string | string[]) => {
     return Promise.reject();
   }
 };
-//
+
+export const setLocalStorage = (values: { [key: string]: any }) => {
+  if (typeof browser !== "undefined") {
+    return browser.storage.local.set(values);
+  } else if (typeof chrome !== "undefined") {
+    return new Promise<void>((resolve) => chrome.storage.local.set(values, resolve));
+  } else {
+    logger.logError("Browser does not support storage.local.set");
+
+    return Promise.reject();
+  }
+};
+
+export const getLocalStorage = (keys?: string | string[]) => {
+  if (typeof browser !== "undefined") {
+    return browser.storage.local.get(keys);
+  } else if (typeof chrome !== "undefined") {
+    return new Promise<{ [key: string]: any }>((resolve) => chrome.storage.local.get(keys, resolve));
+  } else {
+    logger.logError("Browser does not support storage.local.get");
+
+    return Promise.reject();
+  }
+};

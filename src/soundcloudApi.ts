@@ -61,14 +61,10 @@ export class SoundCloudApi {
   }
 
   setClientId(clientId: string) {
-    this.logger.logInfo("Setting ClientId", clientId);
-
     this.clientId = clientId;
   }
 
   setUserId(userId: number) {
-    this.logger.logInfo("Setting UserId", userId);
-
     this.userId = userId;
   }
 

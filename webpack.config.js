@@ -7,7 +7,7 @@ module.exports = {
   entry: {
     content: "./src/content.ts",
     background: "./src/background.ts",
-    options: "./src/options.ts",
+    settings: "./src/settings.ts",
   },
 
   output: {

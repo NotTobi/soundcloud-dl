@@ -10,15 +10,17 @@ import {
 } from "./compatibilityStubs";
 import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
 import { Mp3TagWriter } from "./mp3TagWriter";
-import { config, loadConfiguration } from "./config";
+import { config, loadConfiguration, storeConfigValue } from "./config";
 import { TagWriter } from "./tagWriter";
 import { Mp4TagWriter } from "./mp4TagWriter";
 
-loadConfiguration();
-
 const soundcloudApi = new SoundCloudApi();
 const logger = Logger.create("Background");
-let authorizationHeader: string | null = null;
+
+loadConfiguration(true).then(() => {
+  soundcloudApi.setClientId(config["client-id"].value);
+  soundcloudApi.setUserId(config["user-id"].value);
+});
 
 function sanitizeFileName(input: string) {
   return input.replace(/[\\\/\:\*\?\"\'\<\>\~\|]+/g, "");
@@ -134,7 +136,8 @@ async function handleDownload(data: DownloadData) {
 
   logger.logInfo(`Successfully downloaded '${filename}'!`);
 
-  URL.revokeObjectURL(downloadUrl);
+  // todo: first do this when the download is completed
+  // URL.revokeObjectURL(downloadUrl);
 }
 
 function getProgressiveStreamUrl(details: Track): string | null {
@@ -153,7 +156,7 @@ function getProgressiveStreamUrl(details: Track): string | null {
   const hqStreams = progressiveStreams.filter((i) => i.quality === "hq");
   const nonHqStreams = progressiveStreams.filter((i) => i.quality !== "hq");
 
-  if (config["download-hq-version"] && hqStreams.length > 0) {
+  if (config["download-hq-version"].value && hqStreams.length > 0) {
     logger.logInfo("Using High Quality Stream!");
 
     return hqStreams[0].url;
@@ -165,7 +168,7 @@ function getProgressiveStreamUrl(details: Track): string | null {
 // -------------------- HANDLERS --------------------
 
 // todo: find better way to aquire client_id and OAuth token
-onBeforeSendHeaders((details) => {
+onBeforeSendHeaders(async (details) => {
   let requestHasAuth = false;
 
   if (details.requestHeaders) {
@@ -173,18 +176,24 @@ onBeforeSendHeaders((details) => {
       if (details.requestHeaders[i].name.toLowerCase() !== "authorization") continue;
 
       requestHasAuth = true;
-      const newAuthorizationHeader = details.requestHeaders[i].value;
+      const authHeader = details.requestHeaders[i].value;
 
-      if (!newAuthorizationHeader.startsWith("OAuth") || newAuthorizationHeader === authorizationHeader) continue;
+      const authRegex = new RegExp("OAuth (.+)");
+      const result = authRegex.exec(authHeader);
 
-      authorizationHeader = newAuthorizationHeader;
-      logger.logInfo("Stored Authorization Header:", authorizationHeader);
+      if (!result || result.length < 2) continue;
+
+      const newToken = result[1];
+
+      if (newToken === config["oauth-token"].value) continue;
+
+      await storeConfigValue("oauth-token", newToken);
     }
 
-    if (!requestHasAuth && authorizationHeader) {
+    if (!requestHasAuth && config["oauth-token"].value) {
       details.requestHeaders.push({
         name: "Authorization",
-        value: authorizationHeader,
+        value: "OAuth " + config["oauth-token"].value,
       });
     }
   }
@@ -205,16 +214,17 @@ onBeforeRequest(async (details) => {
 
   soundcloudApi.setClientId(clientId);
 
-  if (!authorizationHeader) return;
+  await storeConfigValue("client-id", clientId);
 
-  // todo: meeeeh
-  const oauthToken = authorizationHeader.split(" ")[1];
+  if (!config["oauth-token"].value) return;
 
-  const user = await soundcloudApi.getCurrentUser(oauthToken);
+  const user = await soundcloudApi.getCurrentUser(config["oauth-token"].value);
 
   if (!user) return;
 
   soundcloudApi.setUserId(user.id);
+
+  await storeConfigValue("user-id", user.id);
 });
 
 onMessageFromTab(async (_, message) => {
@@ -230,7 +240,7 @@ onMessageFromTab(async (_, message) => {
 
   let stream: { url: string; extension?: string };
 
-  if (config["download-original-version"] && track.downloadable && track.has_downloads_left) {
+  if (config["download-original-version"].value && track.downloadable && track.has_downloads_left) {
     const originalDownloadUrl = await soundcloudApi.getOriginalDownloadUrl(track.id);
 
     if (originalDownloadUrl) {

@@ -29,7 +29,7 @@
     "scripts": ["js/background.js"]
   },
   "options_ui": {
-    "page": "options.html"
+    "page": "settings.html"
   },
   "page_action": {
     "default_icon": {
