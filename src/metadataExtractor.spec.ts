@@ -236,5 +236,3 @@ braceCombos.forEach(([opening, closing]) => {
     });
   });
 });
-
-// todo: test real-world examples

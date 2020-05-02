@@ -10,17 +10,14 @@ import {
 } from "./compatibilityStubs";
 import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
 import { Mp3TagWriter } from "./mp3TagWriter";
-import { config, loadConfiguration, storeConfigValue } from "./config";
+import { loadConfiguration, storeConfigValue, getConfigValue } from "./config";
 import { TagWriter } from "./tagWriter";
 import { Mp4TagWriter } from "./mp4TagWriter";
 
 const soundcloudApi = new SoundCloudApi();
 const logger = Logger.create("Background");
 
-loadConfiguration(true).then(() => {
-  soundcloudApi.setClientId(config["client-id"].value);
-  soundcloudApi.setUserId(config["user-id"].value);
-});
+loadConfiguration(true);
 
 function sanitizeFileName(input: string) {
   return input.replace(/[\\\/\:\*\?\"\'\<\>\~\|]+/g, "");
@@ -155,7 +152,7 @@ function getProgressiveStreamUrl(details: Track): string | null {
   const hqStreams = progressiveStreams.filter((i) => i.quality === "hq");
   const nonHqStreams = progressiveStreams.filter((i) => i.quality !== "hq");
 
-  if (config["download-hq-version"].value && hqStreams.length > 0) {
+  if (getConfigValue("download-hq-version") && hqStreams.length > 0) {
     logger.logInfo("Using High Quality Stream!");
 
     return hqStreams[0].url;
@@ -166,65 +163,76 @@ function getProgressiveStreamUrl(details: Track): string | null {
 
 // -------------------- HANDLERS --------------------
 
-// todo: find better way to aquire client_id and OAuth token
-onBeforeSendHeaders(async (details) => {
-  let requestHasAuth = false;
+onBeforeSendHeaders(
+  (details) => {
+    let requestHasAuth = false;
 
-  if (details.requestHeaders) {
-    for (let i = 0; i < details.requestHeaders.length; i++) {
-      if (details.requestHeaders[i].name.toLowerCase() !== "authorization") continue;
+    if (details.requestHeaders && getConfigValue("oauth-token") !== null) {
+      for (let i = 0; i < details.requestHeaders.length; i++) {
+        if (details.requestHeaders[i].name.toLowerCase() !== "authorization") continue;
 
-      requestHasAuth = true;
-      const authHeader = details.requestHeaders[i].value;
+        requestHasAuth = true;
+        const authHeader = details.requestHeaders[i].value;
 
-      const authRegex = new RegExp("OAuth (.+)");
-      const result = authRegex.exec(authHeader);
+        const authRegex = new RegExp("OAuth (.+)");
+        const result = authRegex.exec(authHeader);
 
-      if (!result || result.length < 2) continue;
+        if (!result || result.length < 2) continue;
 
-      const newToken = result[1];
+        storeConfigValue("oauth-token", result[1]);
+      }
 
-      if (newToken === config["oauth-token"].value) continue;
+      const oauthToken = getConfigValue("oauth-token");
 
-      await storeConfigValue("oauth-token", newToken);
+      if (!requestHasAuth && oauthToken) {
+        logger.logInfo("Add OAuth token to request", oauthToken);
+
+        details.requestHeaders.push({
+          name: "Authorization",
+          value: "OAuth " + oauthToken,
+        });
+      }
     }
 
-    if (!requestHasAuth && config["oauth-token"].value) {
-      details.requestHeaders.push({
-        name: "Authorization",
-        value: "OAuth " + config["oauth-token"].value,
-      });
+    return {
+      requestHeaders: details.requestHeaders,
+    };
+  },
+  ["*://api-v2.soundcloud.com/*"],
+  ["blocking", "requestHeaders"]
+);
+
+onBeforeRequest(
+  async (details) => {
+    const url = new URL(details.url);
+
+    if (url.pathname === "/connect/session" && getConfigValue("oauth-token") === null) {
+      logger.logInfo("User logged in");
+
+      await storeConfigValue("oauth-token", undefined);
+    } else if (url.pathname === "/sign-out") {
+      logger.logInfo("User logged out");
+
+      await storeConfigValue("oauth-token", null);
+    } else {
+      const clientId = url.searchParams.get("client_id");
+
+      if (clientId) {
+        storeConfigValue("client-id", clientId);
+      } else if (getConfigValue("client-id")) {
+        url.searchParams.append("client_id", getConfigValue("client-id"));
+
+        logger.logInfo("Add ClientId to unauthenticated request", getConfigValue("client-id"));
+
+        return {
+          redirectUrl: url.toString(),
+        };
+      }
     }
-  }
-
-  return {
-    requestHeaders: details.requestHeaders,
-  };
-});
-
-onBeforeRequest(async (details) => {
-  if (details.tabId < 0) return;
-
-  const params = new URLSearchParams(details.url);
-
-  const clientId = params.get("client_id");
-
-  if (!clientId || clientId === soundcloudApi.clientId) return;
-
-  soundcloudApi.setClientId(clientId);
-
-  await storeConfigValue("client-id", clientId);
-
-  if (!config["oauth-token"].value) return;
-
-  const user = await soundcloudApi.getCurrentUser(config["oauth-token"].value);
-
-  if (!user) return;
-
-  soundcloudApi.setUserId(user.id);
-
-  await storeConfigValue("user-id", user.id);
-});
+  },
+  ["*://api-v2.soundcloud.com/*", "*://api-auth.soundcloud.com/*"],
+  ["blocking"]
+);
 
 onMessageFromTab(async (_, message) => {
   if (message.type !== "DOWNLOAD" || !message.url) return;
@@ -239,7 +247,7 @@ onMessageFromTab(async (_, message) => {
 
   let stream: { url: string; extension?: string };
 
-  if (config["download-original-version"].value && track.downloadable && track.has_downloads_left) {
+  if (getConfigValue("download-original-version") && track.downloadable && track.has_downloads_left) {
     const originalDownloadUrl = await soundcloudApi.getOriginalDownloadUrl(track.id);
 
     if (originalDownloadUrl) {

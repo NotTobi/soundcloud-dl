@@ -1,15 +1,16 @@
 import { Logger } from "./logger";
 
-const urlFilter = { urls: ["*://api-v2.soundcloud.com/*"] };
+// const urlFilter = { urls: ["*://api-v2.soundcloud.com/*"] };
 const logger = Logger.create("Compatibility Stubs");
 
 type BeforeSendHeadersCallback = (details: any) => any;
 
-export const onBeforeSendHeaders = (callback: BeforeSendHeadersCallback) => {
+export const onBeforeSendHeaders = (callback: BeforeSendHeadersCallback, urls?: string[], extraInfos?: string[]) => {
   if (typeof browser !== "undefined") {
-    browser.webRequest.onBeforeSendHeaders.addListener(callback, urlFilter, ["requestHeaders", "blocking"]);
+    // @ts-ignore
+    browser.webRequest.onBeforeSendHeaders.addListener(callback, { urls }, extraInfos);
   } else if (typeof chrome !== "undefined") {
-    chrome.webRequest.onBeforeSendHeaders.addListener(callback, urlFilter, ["requestHeaders", "blocking"]);
+    chrome.webRequest.onBeforeSendHeaders.addListener(callback, { urls }, extraInfos);
   } else {
     logger.logError("Browser does not support webRequest.onBeforeSendHeaders");
   }
@@ -17,11 +18,12 @@ export const onBeforeSendHeaders = (callback: BeforeSendHeadersCallback) => {
 
 type OnBeforeRequestCallback = (details: any) => any;
 
-export const onBeforeRequest = (callback: OnBeforeRequestCallback) => {
+export const onBeforeRequest = (callback: OnBeforeRequestCallback, urls: string[], extraInfos?: string[]) => {
   if (typeof browser !== "undefined") {
-    browser.webRequest.onBeforeRequest.addListener(callback, urlFilter);
+    // @ts-ignore
+    browser.webRequest.onBeforeRequest.addListener(callback, { urls }, extraInfos);
   } else if (typeof chrome !== "undefined") {
-    chrome.webRequest.onBeforeRequest.addListener(callback, urlFilter);
+    chrome.webRequest.onBeforeRequest.addListener(callback, { urls }, extraInfos);
   } else {
     logger.logError("Browser does not support webRequest.onBeforeRequest");
   }

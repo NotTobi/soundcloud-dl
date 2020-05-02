@@ -13,6 +13,7 @@ If you want to help implement one of those features, go right ahead! :)
 
 #### Developer TODOs
 
+- find better way to aquire client_id and oauth token
 - add download support for hls only files
 - better error handling -> also displaying errors to the user
 - cleanup `background.ts`

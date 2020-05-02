@@ -53,35 +53,25 @@ type KeyedTracks = { [key: number]: Track };
 export class SoundCloudApi {
   readonly baseUrl: string = "https://api-v2.soundcloud.com";
   private logger: Logger;
-  clientId: string;
-  userId: number;
 
   constructor() {
     this.logger = Logger.create("SoundCloudApi");
   }
 
-  setClientId(clientId: string) {
-    this.clientId = clientId;
-  }
-
-  setUserId(userId: number) {
-    this.userId = userId;
-  }
-
   async resolveUrl<T>(url: string) {
-    const reqUrl = `${this.baseUrl}/resolve?url=${url}&client_id=${this.clientId}`;
+    const reqUrl = `${this.baseUrl}/resolve?url=${url}`;
 
     return await this.fetchJson<T>(reqUrl);
   }
 
   async getCurrentUser(oauthToken: string) {
-    const url = `${this.baseUrl}/me?oauth_token=${oauthToken}&client_id=${this.clientId}`;
+    const url = `${this.baseUrl}/me?oauth_token=${oauthToken}`;
 
     return await this.fetchJson<User>(url);
   }
 
   async getTracks(trackIds: number[]): Promise<KeyedTracks> {
-    const url = `${this.baseUrl}/tracks?ids=${trackIds.join(",")}&client_id=${this.clientId}`;
+    const url = `${this.baseUrl}/tracks?ids=${trackIds.join(",")}`;
 
     this.logger.logInfo("Fetching tracks with Ids", { trackIds });
 
@@ -95,7 +85,7 @@ export class SoundCloudApi {
   }
 
   async getStreamDetails(progressiveStreamUrl: string): Promise<StreamDetails> {
-    const url = `${progressiveStreamUrl}?client_id=${this.clientId}`;
+    const url = `${progressiveStreamUrl}`;
 
     const stream = await this.fetchJson<ProgressiveStream>(url);
 
@@ -119,7 +109,7 @@ export class SoundCloudApi {
   }
 
   async getOriginalDownloadUrl(id: number) {
-    const url = `${this.baseUrl}/tracks/${id}/download?client_id=${this.clientId}`;
+    const url = `${this.baseUrl}/tracks/${id}/download`;
 
     this.logger.logInfo("Getting original download URL for track with Id", id);
 

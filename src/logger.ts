@@ -12,7 +12,7 @@ export class Logger {
   log(logLevel: LogLevel, message: string, ...args: any[]): void {
     if (logLevel < this.minLogLevel) return;
 
-    const timestamp = `[${Date.now()}]`;
+    const timestamp = `[${new Date().toISOString()}]`;
     const source = `[${this.source}]`;
 
     switch (logLevel) {

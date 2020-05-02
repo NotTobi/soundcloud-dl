@@ -12,6 +12,7 @@ const logger = Logger.create("Config");
 
 interface ConfigValue<T> {
   value?: T;
+  defaultValue?: T;
   sync?: boolean;
   onChanged?: (value?: T) => void;
 }
@@ -21,15 +22,13 @@ interface Config {
   "download-original-version": ConfigValue<boolean>;
   "oauth-token": ConfigValue<string>;
   "client-id": ConfigValue<string>;
-  "user-id": ConfigValue<number>;
 }
 
-export const config: Config = {
-  "download-hq-version": { sync: true, value: true },
-  "download-original-version": { sync: true, value: false },
-  "oauth-token": { value: undefined },
-  "client-id": { value: undefined },
-  "user-id": { value: undefined },
+const config: Config = {
+  "download-hq-version": { sync: true, defaultValue: true },
+  "download-original-version": { sync: true, defaultValue: false },
+  "oauth-token": { defaultValue: undefined },
+  "client-id": { defaultValue: undefined },
 };
 
 export const configKeys = Object.keys(config) as Array<keyof Config>;
@@ -72,7 +71,7 @@ export async function loadConfigValue<TKey extends keyof Config>(key: TKey): Pro
   if (sync) result = await getSyncStorage(key);
   else result = await getLocalStorage(key);
 
-  return result[key];
+  return result[key] ?? config[key].defaultValue;
 }
 
 export async function loadConfiguration(monitorStorage: boolean = false) {
@@ -83,6 +82,16 @@ export async function loadConfiguration(monitorStorage: boolean = false) {
   if (monitorStorage) onStorageChanged(handleStorageChanged);
 
   return config;
+}
+
+export async function resetConfig() {
+  for (const key of configKeys) {
+    await storeConfigValue(key, config[key].defaultValue);
+  }
+}
+
+export function getConfigValue<TKey extends keyof Config>(key: TKey): Config[TKey]["value"] {
+  return config[key].value;
 }
 
 const handleStorageChanged = (changes: { [key: string]: StorageChange }) => {

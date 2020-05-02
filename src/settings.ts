@@ -1,7 +1,17 @@
-import { config, configKeys, loadConfiguration, storeConfigValue } from "./config";
+import { configKeys, loadConfiguration, storeConfigValue, getConfigValue, resetConfig } from "./config";
 import { Logger } from "./logger";
 
 const logger = Logger.create("Settings");
+
+async function resetSettings(e) {
+  e.preventDefault();
+
+  logger.logInfo("Resetting settings...");
+
+  await resetConfig();
+
+  await restoreSettings();
+}
 
 async function saveSettings(e) {
   e.preventDefault();
@@ -33,7 +43,7 @@ async function restoreSettings() {
 
       if (elem === null) continue;
 
-      const value = config[configKey].value;
+      const value = getConfigValue(configKey);
 
       if (typeof value === "boolean") elem.checked = value;
       else if (typeof value === "string") elem.value = value;
@@ -45,3 +55,4 @@ async function restoreSettings() {
 
 document.addEventListener("DOMContentLoaded", restoreSettings);
 document.querySelector("form").addEventListener("submit", saveSettings);
+document.querySelector("form").addEventListener("reset", resetSettings);
