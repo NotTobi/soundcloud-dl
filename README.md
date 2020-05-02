@@ -14,11 +14,9 @@ If you want to help implement one of those features, go right ahead! :)
 #### Developer TODOs
 
 - persist OAuth Token and ClientId, to ease development
-- determine file extension of original audio file
 - add download support for hls only files
 - better error handling -> also displaying errors to the user
 - cleanup `background.ts`
-- cleanup `mp4TagWriter.ts` and try to improve performance
 
 ## Building the addon
 
