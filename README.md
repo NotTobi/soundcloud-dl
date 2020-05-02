@@ -15,7 +15,6 @@ If you want to help implement one of those features, go right ahead! :)
 
 - persist OAuth Token and ClientId, to ease development
 - determine file extension of original audio file
-- set track length for m4a files explicitly (issues with VLC an other audio players)
 - add download support for hls only files
 - better error handling -> also displaying errors to the user
 - cleanup `background.ts`
