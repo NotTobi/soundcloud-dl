@@ -305,7 +305,7 @@ class Mp4 {
     }
 
     // data flags at 16, length = 4
-    headerBufferView.setUint32(16, this._getFlags(name));
+    headerBufferView.setUint32(16, this._getFlags(atom.name));
 
     return headerBuffer;
   }
