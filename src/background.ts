@@ -133,6 +133,8 @@ async function handleDownload(data: DownloadData) {
   await downloadToFile(downloadUrl, filename + "." + data.fileExtension);
 
   logger.logInfo(`Successfully downloaded '${filename}'!`);
+
+  URL.revokeObjectURL(downloadUrl);
 }
 
 function getProgressiveStreamUrl(details: Track): string | null {
