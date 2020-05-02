@@ -139,28 +139,29 @@ export class SoundCloudApi {
   }
 
   async downloadArtwork(artworkUrl: string) {
-    return this.fetchArrayBuffer(artworkUrl);
+    const [buffer] = await this.fetchArrayBuffer(artworkUrl);
+    return buffer;
   }
 
-  async downloadStream(streamUrl: string) {
+  downloadStream(streamUrl: string) {
     return this.fetchArrayBuffer(streamUrl);
   }
 
-  private async fetchArrayBuffer(url: string) {
+  private async fetchArrayBuffer(url: string): Promise<[ArrayBuffer, Headers]> {
     try {
       const resp = await fetch(url);
 
-      if (!resp.ok) return null;
+      if (!resp.ok) return [null, null];
 
       const buffer = await resp.arrayBuffer();
 
-      if (!buffer) return null;
+      if (!buffer) return [null, null];
 
-      return buffer;
+      return [buffer, resp.headers];
     } catch (error) {
       this.logger.logError("Failed to fetch ArrayBuffer from", url);
 
-      return null;
+      return [null, null];
     }
   }
 

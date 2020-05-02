@@ -52,7 +52,7 @@ async function handleDownload(data: DownloadData) {
     titleString += ` (${remixerNames} ${remixTypeString})`;
   }
 
-  const rawFilename = `${artistsString} - ${titleString}.${data.fileExtension}`;
+  const rawFilename = `${artistsString} - ${titleString}`;
   const filename = sanitizeFileName(rawFilename);
 
   let artworkUrl = data.artworkUrl;
@@ -64,12 +64,24 @@ async function handleDownload(data: DownloadData) {
 
   logger.logInfo(`Starting download of '${filename}'...`);
 
-  const streamBuffer = await soundcloudApi.downloadStream(streamUrl);
+  const [streamBuffer, streamHeaders] = await soundcloudApi.downloadStream(streamUrl);
 
   if (!streamBuffer) {
     logger.logError("Failed to download stream");
 
     return;
+  }
+
+  if (!data.fileExtension) {
+    const contentType = streamHeaders.get("content-type");
+    let extension = "mp3";
+
+    if (contentType.startsWith("audio/mp4")) extension = "m4a";
+    else if (contentType.startsWith("audio/x-wav")) extension = "wav";
+
+    data.fileExtension = extension;
+
+    logger.logInfo("Inferred file extension from 'content-type' header", { contentType, extension });
   }
 
   let writer: TagWriter;
@@ -93,9 +105,16 @@ async function handleDownload(data: DownloadData) {
     writer.setComment("https://github.com/NotTobi/soundcloud-dl");
 
     if (artworkUrl) {
-      artworkUrl = artworkUrl.replace("-large.", "-original.");
+      const sizeOptions = ["original", "t500x500", "large"];
+      let artworkBuffer = null;
+      let curArtworkUrl;
 
-      const artworkBuffer = await soundcloudApi.downloadArtwork(artworkUrl);
+      do {
+        const curSizeOption = sizeOptions.shift();
+        curArtworkUrl = artworkUrl.replace("-large.", `-${curSizeOption}.`);
+
+        artworkBuffer = await soundcloudApi.downloadArtwork(curArtworkUrl);
+      } while (artworkBuffer === null && sizeOptions.length > 0);
 
       if (artworkBuffer) {
         writer.setArtwork(artworkBuffer);
@@ -111,7 +130,7 @@ async function handleDownload(data: DownloadData) {
 
   const downloadUrl = URL.createObjectURL(downloadBlob);
 
-  await downloadToFile(downloadUrl, filename);
+  await downloadToFile(downloadUrl, filename + "." + data.fileExtension);
 
   logger.logInfo(`Successfully downloaded '${filename}'!`);
 }
@@ -215,7 +234,6 @@ onMessageFromTab(async (_, message) => {
     if (originalDownloadUrl) {
       stream = {
         url: originalDownloadUrl,
-        extension: "wav", // todo: we can't know this yet, this is just an assumption
       };
     }
   }
