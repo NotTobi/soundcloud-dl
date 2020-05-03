@@ -6,6 +6,12 @@ If you're on soundcloud.com, there should be an icon of this extension next to t
 
 Click on the icon (and click on 'Options' in Chrome) to get to the configuration section.
 
+## Known issues
+
+Changing the user OAuth token, after the user logged in/out can sometimes not work correctly.
+
+Therefor it is a good idea to refresh the page, after you've logged in/out!
+
 ## Missing features
 
 - Download playlists/albums/favorites
