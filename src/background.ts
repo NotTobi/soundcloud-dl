@@ -209,17 +209,17 @@ onBeforeSendHeaders(
 );
 
 onBeforeRequest(
-  async (details) => {
+  (details) => {
     const url = new URL(details.url);
 
     if (url.pathname === "/connect/session" && getConfigValue("oauth-token") === null) {
       logger.logInfo("User logged in");
 
-      await storeConfigValue("oauth-token", undefined);
+      storeConfigValue("oauth-token", undefined);
     } else if (url.pathname === "/sign-out") {
       logger.logInfo("User logged out");
 
-      await storeConfigValue("oauth-token", null);
+      storeConfigValue("oauth-token", null);
     } else {
       const clientId = url.searchParams.get("client_id");
 
