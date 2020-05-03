@@ -170,7 +170,7 @@ class Mp4 {
     this._buffer = null;
     this._atoms = [];
 
-    return new Blob(buffers);
+    return new Blob(buffers, { type: "audio/mp4" });
   }
 
   // todo handle case where path is empty, e.g. add as root atom

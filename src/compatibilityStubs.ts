@@ -61,8 +61,6 @@ export const downloadToFile = (url: string, filename: string) => {
 
   return new Promise(async (resolve, reject) => {
     if (typeof browser !== "undefined") {
-      const downloadId = await browser.downloads.download(downloadOptions);
-
       const onChangedHandler = (delta: { id: number; state?: { current?: string } }) => {
         if (delta.id === downloadId) {
           if (delta.state?.current === "complete") resolve();
@@ -73,22 +71,22 @@ export const downloadToFile = (url: string, filename: string) => {
       };
 
       browser.downloads.onChanged.addListener(onChangedHandler);
+
+      const downloadId = await browser.downloads.download(downloadOptions);
     } else if (typeof chrome !== "undefined") {
       let downloadId;
 
       const onChangedHandler = (delta: { id: number; state?: { current?: string } }) => {
         if (delta.id === downloadId) {
-          if (delta.state?.current === "complete") resolve();
-          if (delta.state?.current === "interrupted") reject("Download was interrupted");
+          resolve();
 
           chrome.downloads.onChanged.removeListener(onChangedHandler);
         }
       };
 
-      chrome.downloads.download(downloadOptions, (id) => {
-        downloadId = id;
-        chrome.downloads.onChanged.addListener(onChangedHandler);
-      });
+      chrome.downloads.onChanged.addListener(onChangedHandler);
+
+      chrome.downloads.download(downloadOptions, (id) => (downloadId = id));
     } else {
       return Promise.reject("Browser does not support downloads.download");
     }

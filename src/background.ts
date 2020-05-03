@@ -71,8 +71,9 @@ async function handleDownload(data: DownloadData) {
     return;
   }
 
+  let contentType;
   if (!data.fileExtension) {
-    const contentType = streamHeaders.get("content-type");
+    contentType = streamHeaders.get("content-type");
     let extension = "mp3";
 
     if (contentType.startsWith("audio/mp4")) extension = "m4a";
@@ -124,12 +125,17 @@ async function handleDownload(data: DownloadData) {
 
     downloadBlob = writer.getBlob();
   } else {
-    downloadBlob = new Blob([streamBuffer]);
+    const options: BlobPropertyBag = {};
+
+    if (contentType) options.type = contentType;
+
+    downloadBlob = new Blob([streamBuffer], options);
   }
 
   const downloadUrl = URL.createObjectURL(downloadBlob);
+  const downloadFilename = filename + "." + data.fileExtension;
 
-  await downloadToFile(downloadUrl, filename + "." + data.fileExtension);
+  await downloadToFile(downloadUrl, downloadFilename);
 
   logger.logInfo(`Successfully downloaded '${filename}'!`);
 
