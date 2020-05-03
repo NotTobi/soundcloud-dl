@@ -191,18 +191,18 @@ onBeforeSendHeaders(
       const oauthToken = getConfigValue("oauth-token");
 
       if (!requestHasAuth && oauthToken) {
-        logger.logInfo("Add OAuth token to request", oauthToken);
+        logger.logInfo("Adding OAuth token to request...");
 
         details.requestHeaders.push({
           name: "Authorization",
           value: "OAuth " + oauthToken,
         });
+
+        return {
+          requestHeaders: details.requestHeaders,
+        };
       }
     }
-
-    return {
-      requestHeaders: details.requestHeaders,
-    };
   },
   ["*://api-v2.soundcloud.com/*"],
   ["blocking", "requestHeaders"]
@@ -226,9 +226,9 @@ onBeforeRequest(
       if (clientId) {
         storeConfigValue("client-id", clientId);
       } else if (getConfigValue("client-id")) {
-        url.searchParams.append("client_id", getConfigValue("client-id"));
+        logger.logInfo("Adding ClientId to unauthenticated request...");
 
-        logger.logInfo("Add ClientId to unauthenticated request", getConfigValue("client-id"));
+        url.searchParams.append("client_id", getConfigValue("client-id"));
 
         return {
           redirectUrl: url.toString(),

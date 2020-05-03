@@ -40,11 +40,5 @@
     },
     "default_title": "Soundcloud Downloader",
     "show_matches": ["*://*.soundcloud.com/*"]
-  },
-  // this needs to be removed, when publishing to chrome, since it is not supported!
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "{c7a839e7-7086-4021-8176-1cfcb7f169ce}"
-    }
   }
 }
