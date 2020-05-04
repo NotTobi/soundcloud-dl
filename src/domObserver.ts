@@ -2,7 +2,7 @@ import { Logger } from "./logger";
 
 export interface ObserverEvent {
   selector: string;
-  callback: (node: any) => void;
+  callback: (node: Element) => void;
 }
 
 export class DomObserver {

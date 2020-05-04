@@ -87,9 +87,9 @@ const addDownloadButtonToTrackPage = () => {
       url: window.location.origin + window.location.pathname,
     });
 
-  document.querySelectorAll(selector).forEach((likeButton) => {
-    addDownloadButtonToParent(likeButton.parentNode, downloadFromTrackPage);
-  });
+  document
+    .querySelectorAll(selector)
+    .forEach((likeButton) => addDownloadButtonToParent(likeButton.parentNode, downloadFromTrackPage));
 
   const event: ObserverEvent = {
     selector,
@@ -102,19 +102,27 @@ const addDownloadButtonToTrackPage = () => {
 const addDownloadButtonToFeed = () => {
   const selector = ".sound.streamContext:not(.playlist) .sc-button-group > .sc-button-like";
 
-  const downloadFromFeedPage = () =>
-    sendMessageToBackend({
+  const downloadFromFeedPage = (node: Node) => () => {
+    const soundBody = node.parentElement.closest(".sound__body");
+    const titleLink = soundBody.querySelector("a.soundTitle__title");
+
+    if (titleLink === null) return;
+
+    const downloadUrl = window.location.origin + titleLink.getAttribute("href");
+
+    return sendMessageToBackend({
       type: "DOWNLOAD",
-      url: "", // todo determine
+      url: downloadUrl,
     });
+  };
 
   document.querySelectorAll(selector).forEach((likeButton) => {
-    addDownloadButtonToParent(likeButton.parentNode, downloadFromFeedPage);
+    addDownloadButtonToParent(likeButton.parentNode, downloadFromFeedPage(likeButton));
   });
 
   const event: ObserverEvent = {
     selector,
-    callback: (node) => addDownloadButtonToParent(node.parentNode, downloadFromFeedPage),
+    callback: (node) => addDownloadButtonToParent(node.parentNode, downloadFromFeedPage(node)),
   };
 
   observer?.addEvent(event);
