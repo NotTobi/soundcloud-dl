@@ -14,7 +14,7 @@ const createDownloadButton = () => {
   return button;
 };
 
-const addDownloadButtonToParent = (parent: Node & ParentNode) => {
+const addDownloadButtonToParent = (parent: Node & ParentNode, onClicked: () => Promise<void>) => {
   if (window.location.pathname.includes("/sets/")) {
     logger.logDebug("We are looking at a playlist or an album, do not display a download button!");
 
@@ -35,10 +35,7 @@ const addDownloadButtonToParent = (parent: Node & ParentNode) => {
     button.title = "Downloading...";
     button.innerText = "Downloading...";
 
-    await sendMessageToBackend({
-      type: "DOWNLOAD",
-      url: window.location.origin + window.location.pathname,
-    });
+    await onClicked();
 
     button.disabled = false;
     button.title = "Download";
@@ -81,16 +78,43 @@ const removeDownloadButtons = () => {
   removeElementsMatchingSelectors("button.sc-button-download");
 };
 
-const addDownloadButtons = () => {
+const addDownloadButtonToTrackPage = () => {
   const selector = ".sc-button-group-medium > .sc-button-like";
 
+  const downloadFromTrackPage = () =>
+    sendMessageToBackend({
+      type: "DOWNLOAD",
+      url: window.location.origin + window.location.pathname,
+    });
+
   document.querySelectorAll(selector).forEach((likeButton) => {
-    addDownloadButtonToParent(likeButton.parentNode);
+    addDownloadButtonToParent(likeButton.parentNode, downloadFromTrackPage);
   });
 
   const event: ObserverEvent = {
     selector,
-    callback: (node) => addDownloadButtonToParent(node.parentNode),
+    callback: (node) => addDownloadButtonToParent(node.parentNode, downloadFromTrackPage),
+  };
+
+  observer?.addEvent(event);
+};
+
+const addDownloadButtonToFeed = () => {
+  const selector = ".sound.streamContext:not(.playlist) .sc-button-group > .sc-button-like";
+
+  const downloadFromFeedPage = () =>
+    sendMessageToBackend({
+      type: "DOWNLOAD",
+      url: "", // todo determine
+    });
+
+  document.querySelectorAll(selector).forEach((likeButton) => {
+    addDownloadButtonToParent(likeButton.parentNode, downloadFromFeedPage);
+  });
+
+  const event: ObserverEvent = {
+    selector,
+    callback: (node) => addDownloadButtonToParent(node.parentNode, downloadFromFeedPage),
   };
 
   observer?.addEvent(event);
@@ -103,7 +127,9 @@ const handlePageLoaded = () => {
 
   removeDownloadButtons();
 
-  addDownloadButtons();
+  addDownloadButtonToTrackPage();
+
+  addDownloadButtonToFeed();
 
   observer.start(document.body);
 
