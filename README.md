@@ -15,7 +15,6 @@ Therefor it is a good idea to refresh the page, after you've logged in/out!
 ## Missing features
 
 - Download playlists/albums/favorites
-- Add download buttons in more locations around the page
 
 If you want to help implement one of those features, go right ahead! :)
 
