@@ -1,5 +1,7 @@
 # Download this extension from the [Firefox Add-ons page](https://addons.mozilla.org/firefox/addon/soundcloud-dl)
 
+[Changelog](./CHANGELOG.md)
+
 ## Configuration
 
 If you're on soundcloud.com, there should be an icon of this extension next to the addressbar.
