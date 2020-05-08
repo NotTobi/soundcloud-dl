@@ -33,7 +33,7 @@ interface DownloadData {
   fileExtension?: string;
 }
 
-async function handleDownload(data: DownloadData) {
+async function handleDownload(data: DownloadData, trackNumber?: number) {
   const { title, username, avatarUrl, streamUrl } = data;
 
   const extractor = new MetadataExtractor(title, username);
@@ -103,6 +103,10 @@ async function handleDownload(data: DownloadData) {
     writer.setAlbum(titleString);
     writer.setArtists([artistsString]);
     writer.setComment("https://github.com/NotTobi/soundcloud-dl");
+
+    if (trackNumber > 0) {
+      writer.setTrackNumber(trackNumber);
+    }
 
     if (artworkUrl) {
       const sizeOptions = ["original", "t500x500", "large"];
@@ -240,7 +244,7 @@ onBeforeRequest(
   ["blocking"]
 );
 
-async function downloadTrack(track: Track) {
+async function downloadTrack(track: Track, trackNumber?: number) {
   if (!track || track.kind !== "track" || track.state !== "finished" || !track.streamable) {
     logger.logError("Track is not streamable", track);
     return;
@@ -283,7 +287,7 @@ async function downloadTrack(track: Track) {
     avatarUrl: track.user.avatar_url,
   };
 
-  await handleDownload(downloadData);
+  await handleDownload(downloadData, trackNumber);
 }
 
 onMessageFromTab(async (_, message) => {
@@ -291,18 +295,22 @@ onMessageFromTab(async (_, message) => {
 
   if (message.type === "DOWNLOAD_SET") {
     // todo: correctly type
-    const set = await soundcloudApi.resolveUrl<{ tracks: Track[] }>(message.url);
+    const set = await soundcloudApi.resolveUrl<{ tracks: Track[]; set_type: string }>(message.url);
+    const isAlbum = set.set_type === "album";
 
     const trackIds = set.tracks.map((i) => i.id);
 
-    const tracks = await soundcloudApi.getTracks(trackIds);
-
-    const downloads = [];
+    const keyedTracks = await soundcloudApi.getTracks(trackIds);
+    const tracks = Object.values(keyedTracks).reverse();
 
     logger.logInfo("Downloading playlist...");
 
-    for (const track of Object.values(tracks)) {
-      downloads.push(downloadTrack(track));
+    const downloads = [];
+
+    for (let i = 0; i < tracks.length; i++) {
+      const download = downloadTrack(tracks[i], isAlbum ? i + 1 : undefined);
+
+      downloads.push(download);
     }
 
     await Promise.all(downloads);

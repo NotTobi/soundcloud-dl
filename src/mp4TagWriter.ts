@@ -62,7 +62,7 @@ class Mp4 {
     this._bufferView.setUint32(mvhdAtom.offset + ATOM_HEAD_LENGTH + precedingDataLength, duration);
   }
 
-  addMetadataAtom(name: string, data: ArrayBuffer | string) {
+  addMetadataAtom(name: string, data: ArrayBuffer | string | number) {
     if (name.length > 4 || name.length < 1) throw new Error(`Unsupported atom name: '${name}'`);
 
     let dataBuffer: ArrayBuffer;
@@ -71,6 +71,10 @@ class Mp4 {
       dataBuffer = data;
     } else if (typeof data === "string") {
       dataBuffer = this._getBufferFromString(data);
+    } else if (typeof data === "number") {
+      dataBuffer = new ArrayBuffer(4);
+      const dataView = new DataView(dataBuffer);
+      dataView.setUint32(0, data);
     } else {
       throw new Error(`Unsupported data: '${data}'`);
     }
@@ -350,28 +354,47 @@ export class Mp4TagWriter implements TagWriter {
   }
 
   setTitle(title: string) {
+    if (!title) throw new Error("Invalid value for title");
+
     this._mp4.addMetadataAtom("©nam", title);
   }
 
   setArtists(artists: string[]) {
+    if (!artists || artists.length < 1) throw new Error("Invalid value for artists");
+
     const artist = artists.join(", ");
 
     this._mp4.addMetadataAtom("©ART", artist);
   }
 
   setAlbum(album: string) {
+    if (!album) throw new Error("Invalid value for album");
+
     this._mp4.addMetadataAtom("©alb", album);
   }
 
   setComment(comment: string) {
+    if (!comment) throw new Error("Invalid value for comment");
+
     this._mp4.addMetadataAtom("©cmt", comment);
   }
 
+  setTrackNumber(trackNumber: number) {
+    // max trackNumber is max of Uint8
+    if (trackNumber < 1 || trackNumber > 32767) throw new Error("Invalid value for trackNumber");
+
+    this._mp4.addMetadataAtom("trkn", trackNumber);
+  }
+
   setArtwork(artworkBuffer: ArrayBuffer) {
+    if (!artworkBuffer || artworkBuffer.byteLength < 1) throw new Error("Invalid value for artworkBuffer");
+
     this._mp4.addMetadataAtom("covr", artworkBuffer);
   }
 
   setDuration(duration: number) {
+    if (duration < 1) throw new Error("Invalid value for duration");
+
     this._mp4.setDuration(duration);
   }
 

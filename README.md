@@ -40,7 +40,6 @@ The build artifact `SoundCloud-Downloader-Firefox.zip` can be found in the `dist
 
 ### Developer TODOs
 
-- add track number to album downloads
 - find better way to aquire client_id and oauth token, check if user logged in/out
 - add download support for HLS only files
 - better error handling -> also displaying errors to the user
