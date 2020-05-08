@@ -1,3 +1,7 @@
+## 1.5.1
+
+- Change design of options page
+
 ## 1.5.0
 
 - Allow the download of playlists/albums

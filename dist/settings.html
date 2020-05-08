@@ -4,24 +4,69 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <style>
+      body {
+        width: 600px;
+        overflow: hidden;
+      }
+
+      form {
+        padding: 20px;
+        width: 100%;
+      }
+
+      .option {
+        display: flex;
+        align-items: center;
+      }
+
+      .option label {
+        font-size: 14px;
+      }
+
+      .actions {
+        margin-top: 20px;
+        display: flex;
+        justify-content: center;
+      }
+
+      .actions button {
+        width: 140px;
+        text-align: center;
+        color: #fffefe;
+        background-color: #ff5419;
+        padding: 8px 0px;
+        border: 0;
+        font-weight: 700;
+        font-size: 16px;
+      }
+
+      .actions button:hover {
+        background-color: #ff5419de;
+        cursor: pointer;
+      }
+    </style>
   </head>
 
   <body>
     <form>
-      <div>
+      <div class="option">
         <input id="download-hq-version" type="checkbox" />
         <label for="download-hq-version">Download high quality version (you need to be a GO+ user)</label>
       </div>
-      <div>
+      <div class="option">
         <input id="download-original-version" type="checkbox" />
         <label for="download-original-version">
           Download original version (not always possible / metadata might not be set)
         </label>
       </div>
 
-      <div style="margin-top: 20px;">
-        <button type="submit">Save</button>
-        <button type="reset">Reset</button>
+      <div class="actions">
+        <div>
+          <button type="submit">Save</button>
+          <button type="reset">Reset</button>
+        </div>
       </div>
     </form>
 
