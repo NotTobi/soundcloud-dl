@@ -191,7 +191,7 @@ onBeforeSendHeaders(
       const oauthToken = getConfigValue("oauth-token");
 
       if (!requestHasAuth && oauthToken) {
-        logger.logInfo("Adding OAuth token to request...");
+        logger.logDebug("Adding OAuth token to request...", { oauthToken });
 
         details.requestHeaders.push({
           name: "Authorization",
@@ -226,7 +226,7 @@ onBeforeRequest(
       if (clientId) {
         storeConfigValue("client-id", clientId);
       } else if (getConfigValue("client-id")) {
-        logger.logInfo("Adding ClientId to unauthenticated request...");
+        logger.logDebug("Adding ClientId to unauthenticated request...", { url, clientId });
 
         url.searchParams.append("client_id", getConfigValue("client-id"));
 
@@ -240,19 +240,13 @@ onBeforeRequest(
   ["blocking"]
 );
 
-onMessageFromTab(async (_, message) => {
-  if (message.type !== "DOWNLOAD" || !message.url) return;
-
-  const track = await soundcloudApi.resolveUrl<Track>(message.url);
-
+async function downloadTrack(track: Track) {
   if (!track || track.kind !== "track" || track.state !== "finished" || !track.streamable) {
     logger.logError("Track is not streamable", track);
-
     return;
   }
 
   let stream: { url: string; extension?: string };
-
   if (getConfigValue("download-original-version") && track.downloadable && track.has_downloads_left) {
     const originalDownloadUrl = await soundcloudApi.getOriginalDownloadUrl(track.id);
 
@@ -268,7 +262,6 @@ onMessageFromTab(async (_, message) => {
 
     if (!progressiveStreamUrl) {
       logger.logError("Progressive stream URL could not be determined", track);
-
       return;
     }
 
@@ -277,7 +270,6 @@ onMessageFromTab(async (_, message) => {
 
   if (!stream) {
     logger.logError("Stream could not be determined");
-
     return;
   }
 
@@ -292,6 +284,35 @@ onMessageFromTab(async (_, message) => {
   };
 
   await handleDownload(downloadData);
+}
+
+onMessageFromTab(async (_, message) => {
+  if (!message.url) return;
+
+  if (message.type === "DOWNLOAD_SET") {
+    // todo: correctly type
+    const set = await soundcloudApi.resolveUrl<{ tracks: Track[] }>(message.url);
+
+    const trackIds = set.tracks.map((i) => i.id);
+
+    const tracks = await soundcloudApi.getTracks(trackIds);
+
+    const downloads = [];
+
+    logger.logInfo("Downloading playlist...");
+
+    for (const track of Object.values(tracks)) {
+      downloads.push(downloadTrack(track));
+    }
+
+    await Promise.all(downloads);
+
+    logger.logInfo("Downloaded playlist!");
+  } else if (message.type === "DOWNLOAD") {
+    const track = await soundcloudApi.resolveUrl<Track>(message.url);
+
+    await downloadTrack(track);
+  }
 });
 
 onPageActionClicked(() => {

@@ -14,13 +14,7 @@ const createDownloadButton = () => {
   return button;
 };
 
-const addDownloadButtonToParent = (parent: Node & ParentNode, onClicked: () => Promise<void>) => {
-  if (window.location.pathname.includes("/sets/")) {
-    logger.logDebug("We are looking at a playlist or an album, do not display a download button!");
-
-    return;
-  }
-
+const addDownloadButtonToParent = (parent: Node & ParentNode, onClicked: () => Promise<any>) => {
   const downloadButtonExists = parent.querySelector("button.sc-button-download") !== null;
 
   if (downloadButtonExists) {
@@ -78,51 +72,61 @@ const removeDownloadButtons = () => {
   removeElementsMatchingSelectors("button.sc-button-download");
 };
 
+const createDownloadCommand = (url: string) => () => {
+  const set = url.includes("/sets/");
+
+  return sendMessageToBackend({
+    type: set ? "DOWNLOAD_SET" : "DOWNLOAD",
+    url: url,
+  });
+};
+
 const addDownloadButtonToTrackPage = () => {
   const selector = ".sc-button-group-medium > .sc-button-like";
 
-  const downloadFromTrackPage = () =>
-    sendMessageToBackend({
-      type: "DOWNLOAD",
-      url: window.location.origin + window.location.pathname,
-    });
+  // ugly inline func
+  const addDownloadButtonToPossiblePlaylist = (node: Element) => {
+    const downloadUrl = window.location.origin + window.location.pathname;
 
-  document
-    .querySelectorAll(selector)
-    .forEach((likeButton) => addDownloadButtonToParent(likeButton.parentNode, downloadFromTrackPage));
+    const downloadCommand = createDownloadCommand(downloadUrl);
+
+    addDownloadButtonToParent(node.parentNode, downloadCommand);
+  };
+
+  document.querySelectorAll(selector).forEach(addDownloadButtonToPossiblePlaylist);
 
   const event: ObserverEvent = {
     selector,
-    callback: (node) => addDownloadButtonToParent(node.parentNode, downloadFromTrackPage),
+    callback: addDownloadButtonToPossiblePlaylist,
   };
 
   observer?.addEvent(event);
 };
 
 const addDownloadButtonToFeed = () => {
-  const selector = ".sound.streamContext:not(.playlist) .sc-button-group > .sc-button-like";
+  const selector = ".sound.streamContext .sc-button-group > .sc-button-like";
 
-  const downloadFromFeedPage = (node: Node) => () => {
+  // ugly inline func
+  const addDownloadButtonToPossiblePlaylist = (node: Element) => {
     const soundBody = node.parentElement.closest(".sound__body");
     const titleLink = soundBody.querySelector("a.soundTitle__title");
 
-    if (titleLink === null) return;
+    if (titleLink === null) {
+      return;
+    }
 
     const downloadUrl = window.location.origin + titleLink.getAttribute("href");
 
-    return sendMessageToBackend({
-      type: "DOWNLOAD",
-      url: downloadUrl,
-    });
+    const downloadCommand = createDownloadCommand(downloadUrl);
+
+    addDownloadButtonToParent(node.parentNode, downloadCommand);
   };
 
-  document.querySelectorAll(selector).forEach((likeButton) => {
-    addDownloadButtonToParent(likeButton.parentNode, downloadFromFeedPage(likeButton));
-  });
+  document.querySelectorAll(selector).forEach(addDownloadButtonToPossiblePlaylist);
 
   const event: ObserverEvent = {
     selector,
-    callback: (node) => addDownloadButtonToParent(node.parentNode, downloadFromFeedPage(node)),
+    callback: addDownloadButtonToPossiblePlaylist,
   };
 
   observer?.addEvent(event);

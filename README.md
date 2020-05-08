@@ -14,16 +14,9 @@ Therefor it is a good idea to refresh the page, after you've logged in/out!
 
 ## Missing features
 
-- Download playlists/albums/favorites
+- Download favorites
 
 If you want to help implement one of those features, go right ahead! :)
-
-#### Developer TODOs
-
-- find better way to aquire client_id and oauth token, check if user logged in/oout
-- add download support for hls only files
-- better error handling -> also displaying errors to the user
-- cleanup `background.ts`
 
 ## Building instructions for Firefox Add-on review process
 
@@ -42,3 +35,14 @@ Linux 5.6 (Arch-based)
 To build the addon run the `create-dist.sh` script.
 
 The build artifact `SoundCloud-Downloader-Firefox.zip` can be found in the `dist` directory.
+
+<hr />
+
+### Developer TODOs
+
+- add track number to album downloads
+- find better way to aquire client_id and oauth token, check if user logged in/out
+- add download support for HLS only files
+- better error handling -> also displaying errors to the user
+- cleanup `background.ts` and `content.ts`
+- add more extractor tests
