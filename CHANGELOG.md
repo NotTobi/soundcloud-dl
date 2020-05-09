@@ -1,3 +1,8 @@
+## 1.5.4
+
+- When downloading an album, set the correct name
+- Make track normalization configureable
+
 ## 1.5.3
 
 - Set Release Year metadata tag
