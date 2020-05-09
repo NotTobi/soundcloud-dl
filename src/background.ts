@@ -26,6 +26,7 @@ function sanitizeFileName(input: string) {
 interface DownloadData {
   title: string;
   duration: number;
+  date: Date;
   username: string;
   avatarUrl: string;
   artworkUrl: string;
@@ -107,6 +108,10 @@ async function handleDownload(data: DownloadData, trackNumber?: number) {
     if (trackNumber > 0) {
       writer.setTrackNumber(trackNumber);
     }
+
+    const releaseYear = data.date.getFullYear();
+
+    writer.setYear(releaseYear);
 
     if (artworkUrl) {
       const sizeOptions = ["original", "t500x500", "large"];
@@ -285,6 +290,7 @@ async function downloadTrack(track: Track, trackNumber?: number) {
 
   const downloadData: DownloadData = {
     duration: track.duration,
+    date: new Date(track.display_date),
     streamUrl: stream.url,
     fileExtension: stream.extension,
     title: track.title,

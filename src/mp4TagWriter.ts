@@ -338,7 +338,15 @@ class Mp4 {
   private _getFlags(name: string) {
     switch (name) {
       case "covr":
+        // 13 for jpeg, 14 for png
         return 13;
+      case "trkn":
+      case "disk":
+        return 0;
+      case "tmpo":
+      case "cpil":
+      case "rtng":
+        return 21;
       default:
         return 1;
     }
@@ -384,6 +392,12 @@ export class Mp4TagWriter implements TagWriter {
     if (trackNumber < 1 || trackNumber > 32767) throw new Error("Invalid value for trackNumber");
 
     this._mp4.addMetadataAtom("trkn", trackNumber);
+  }
+
+  setYear(year: number) {
+    if (year < 1) throw new Error("Invalud value for year");
+
+    this._mp4.addMetadataAtom("©day", year.toString());
   }
 
   setArtwork(artworkBuffer: ArrayBuffer) {

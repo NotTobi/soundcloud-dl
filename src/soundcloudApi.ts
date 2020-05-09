@@ -24,6 +24,7 @@ interface User {
 export interface Track {
   id: number;
   duration: number; // in ms
+  display_date: string;
   kind: string;
   state: string;
   title: string;

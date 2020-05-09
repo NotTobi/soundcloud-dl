@@ -42,6 +42,12 @@ export class Mp3TagWriter implements TagWriter {
     this.writer.setFrame("TRCK", trackNumber);
   }
 
+  setYear(year: number) {
+    if (year < 1) throw new Error("Invalud value for year");
+
+    this.writer.setFrame("TYER", year);
+  }
+
   setArtwork(artworkBuffer: ArrayBuffer) {
     if (!artworkBuffer || artworkBuffer.byteLength < 1) throw new Error("Invalid value for artworkBuffer");
 
