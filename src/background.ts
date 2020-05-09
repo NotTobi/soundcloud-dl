@@ -36,23 +36,28 @@ interface DownloadData {
 
 async function handleDownload(data: DownloadData, trackNumber?: number) {
   const { title, username, avatarUrl, streamUrl } = data;
+  const normalizeTrack = getConfigValue("normalize-track");
 
-  const extractor = new MetadataExtractor(title, username);
-  const artists = extractor.getArtists();
-  const artistsString = artists.map((i) => i.name).join(", ");
-  let titleString = extractor.getTitle();
+  let rawFilename = username + " - " + title;
+  let artistsString, titleString;
 
-  const remixers = artists.filter((i) => i.type === ArtistType.Remixer);
+  if (normalizeTrack) {
+    const extractor = new MetadataExtractor(title, username);
+    const artists = extractor.getArtists();
+    artistsString = artists.map((i) => i.name).join(", ");
+    titleString = extractor.getTitle();
+    const remixers = artists.filter((i) => i.type === ArtistType.Remixer);
 
-  if (remixers.length > 0) {
-    const remixerNames = remixers.map((i) => i.name).join(" & ");
+    if (remixers.length > 0) {
+      const remixerNames = remixers.map((i) => i.name).join(" & ");
+      const remixTypeString = RemixType[remixers[0].remixType || RemixType.Remix].toString();
 
-    const remixTypeString = RemixType[remixers[0].remixType || RemixType.Remix].toString();
+      titleString += ` (${remixerNames} ${remixTypeString})`;
+    }
 
-    titleString += ` (${remixerNames} ${remixTypeString})`;
+    rawFilename = `${artistsString} - ${titleString}`;
   }
 
-  const rawFilename = `${artistsString} - ${titleString}`;
   const filename = sanitizeFileName(rawFilename);
 
   let artworkUrl = data.artworkUrl;
@@ -99,7 +104,7 @@ async function handleDownload(data: DownloadData, trackNumber?: number) {
 
   let downloadBlob: Blob;
 
-  if (writer) {
+  if (writer && normalizeTrack) {
     writer.setTitle(titleString);
     writer.setAlbum(titleString);
     writer.setArtists([artistsString]);
