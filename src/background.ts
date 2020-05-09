@@ -34,15 +34,15 @@ interface DownloadData {
   fileExtension?: string;
 }
 
-async function handleDownload(data: DownloadData, trackNumber?: number) {
-  const { title, username, avatarUrl, streamUrl } = data;
-  const normalizeTrack = getConfigValue("normalize-track");
+async function handleDownload(data: DownloadData, trackNumber?: number, albumName?: string) {
+  let normalizeTrack = getConfigValue("normalize-track");
 
-  let rawFilename = username + " - " + title;
-  let artistsString, titleString;
+  let artistsString = data.username;
+  let titleString = data.title;
 
   if (normalizeTrack) {
-    const extractor = new MetadataExtractor(title, username);
+    const extractor = new MetadataExtractor(data.title, data.username);
+
     const artists = extractor.getArtists();
     artistsString = artists.map((i) => i.name).join(", ");
     titleString = extractor.getTitle();
@@ -54,22 +54,21 @@ async function handleDownload(data: DownloadData, trackNumber?: number) {
 
       titleString += ` (${remixerNames} ${remixTypeString})`;
     }
-
-    rawFilename = `${artistsString} - ${titleString}`;
   }
 
+  const rawFilename = `${artistsString} - ${titleString}`;
   const filename = sanitizeFileName(rawFilename);
 
   let artworkUrl = data.artworkUrl;
 
   if (!artworkUrl) {
     logger.logInfo("No Artwork URL could be determined. Fallback to User Avatar");
-    artworkUrl = avatarUrl;
+    artworkUrl = data.avatarUrl;
   }
 
   logger.logInfo(`Starting download of '${filename}'...`);
 
-  const [streamBuffer, streamHeaders] = await soundcloudApi.downloadStream(streamUrl);
+  const [streamBuffer, streamHeaders] = await soundcloudApi.downloadStream(data.streamUrl);
 
   if (!streamBuffer) {
     logger.logError("Failed to download stream");
@@ -104,10 +103,11 @@ async function handleDownload(data: DownloadData, trackNumber?: number) {
 
   let downloadBlob: Blob;
 
-  if (writer && normalizeTrack) {
+  if (writer) {
     writer.setTitle(titleString);
-    writer.setAlbum(titleString);
+    writer.setAlbum(albumName ?? titleString);
     writer.setArtists([artistsString]);
+
     writer.setComment("https://github.com/NotTobi/soundcloud-dl");
 
     if (trackNumber > 0) {
@@ -260,7 +260,7 @@ onBeforeRequest(
   ["blocking"]
 );
 
-async function downloadTrack(track: Track, trackNumber?: number) {
+async function downloadTrack(track: Track, trackNumber?: number, albumName?: string) {
   if (!track || track.kind !== "track" || track.state !== "finished" || !track.streamable) {
     logger.logError("Track is not streamable", track);
     return;
@@ -304,7 +304,7 @@ async function downloadTrack(track: Track, trackNumber?: number) {
     avatarUrl: track.user.avatar_url,
   };
 
-  await handleDownload(downloadData, trackNumber);
+  await handleDownload(downloadData, trackNumber, albumName);
 }
 
 onMessageFromTab(async (_, message) => {
@@ -312,7 +312,7 @@ onMessageFromTab(async (_, message) => {
 
   if (message.type === "DOWNLOAD_SET") {
     // todo: correctly type
-    const set = await soundcloudApi.resolveUrl<{ tracks: Track[]; set_type: string }>(message.url);
+    const set = await soundcloudApi.resolveUrl<{ tracks: Track[]; set_type: string; title: string }>(message.url);
     const isAlbum = set.set_type === "album";
 
     const trackIds = set.tracks.map((i) => i.id);
@@ -325,7 +325,9 @@ onMessageFromTab(async (_, message) => {
     const downloads = [];
 
     for (let i = 0; i < tracks.length; i++) {
-      const download = downloadTrack(tracks[i], isAlbum ? i + 1 : undefined);
+      const trackNumber = isAlbum ? i + 1 : undefined;
+      const albumName = isAlbum ? set.title : undefined;
+      const download = downloadTrack(tracks[i], trackNumber, albumName);
 
       downloads.push(download);
     }
