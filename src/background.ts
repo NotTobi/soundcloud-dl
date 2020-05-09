@@ -137,9 +137,15 @@ async function handleDownload(data: DownloadData, trackNumber?: number) {
   }
 
   const downloadUrl = URL.createObjectURL(downloadBlob);
-  const downloadFilename = filename + "." + data.fileExtension;
+  const saveAs = !getConfigValue("download-without-prompt");
+  const defaultDownloadLocation = getConfigValue("default-download-location");
+  let downloadFilename = filename + "." + data.fileExtension;
 
-  await downloadToFile(downloadUrl, downloadFilename);
+  if (!saveAs && defaultDownloadLocation) {
+    downloadFilename = defaultDownloadLocation.replace(/^\/+/g, "") + "/" + downloadFilename;
+  }
+
+  await downloadToFile(downloadUrl, downloadFilename, saveAs);
 
   logger.logInfo(`Successfully downloaded '${filename}'!`);
 

@@ -21,7 +21,8 @@
         align-items: center;
       }
 
-      .option label {
+      label,
+      input {
         font-size: 14px;
       }
 
@@ -46,6 +47,16 @@
         background-color: #ff5419de;
         cursor: pointer;
       }
+
+      .default-download-location-container {
+        width: 100%;
+        margin-left: 22px;
+        margin-top: 6px;
+      }
+
+      #default-download-location {
+        width: 100%;
+      }
     </style>
   </head>
 
@@ -60,6 +71,19 @@
         <label for="download-original-version">
           Download original version (not always possible / metadata might not be set)
         </label>
+      </div>
+      <div class="option">
+        <input id="download-without-prompt" type="checkbox" />
+        <label for="download-without-prompt">Download to default location without showing a dialog:</label>
+      </div>
+
+      <div class="default-download-location-container">
+        <input
+          id="default-download-location"
+          type="text"
+          placeholder="e.g. 'SC\DL' => '%UserProfile%\Downloads\SC\DL\<file>.mp3'"
+        />
+        <label for="default-download-location">(Relative to the 'Downloads' directory) </label>
       </div>
 
       <div class="actions">

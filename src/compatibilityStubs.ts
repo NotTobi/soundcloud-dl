@@ -53,10 +53,11 @@ export const onMessageFromTab = (callback: MessageFromTabCallback) => {
   }
 };
 
-export const downloadToFile = (url: string, filename: string) => {
+export const downloadToFile = (url: string, filename: string, saveAs: boolean) => {
   const downloadOptions = {
     url,
     filename,
+    saveAs,
   };
 
   return new Promise(async (resolve, reject) => {

@@ -1,3 +1,7 @@
+## 1.5.2
+
+- Make download procedure configureable
+
 ## 1.5.1
 
 - Change design of options page
@@ -14,7 +18,7 @@
 ## 1.4.6
 
 - Minor refactorings and bug fixes
-- Reworked bundling process
+- Rework bundling process
 
 ## 1.4.5
 
@@ -60,7 +64,7 @@
 ## 1.3.0
 
 - Download Artwork in original size
-- Make download of HQ version configurable via 'Preferences'
+- Make download of HQ version configurable via options page
 
 ## 1.2.1
 
@@ -80,7 +84,7 @@
 ## 1.1.0
 
 - Migrate to Typescript
-- Removed jQuery
+- Remove jQuery
 - Fix bug where the download button would show up for albums/playlists as well
 
 ## 1.0.2

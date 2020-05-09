@@ -22,6 +22,8 @@ interface Config {
   "download-original-version": ConfigValue<boolean>;
   "oauth-token": ConfigValue<string>;
   "client-id": ConfigValue<string>;
+  "default-download-location": ConfigValue<string>;
+  "download-without-prompt": ConfigValue<boolean>;
 }
 
 const config: Config = {
@@ -29,6 +31,8 @@ const config: Config = {
   "download-original-version": { sync: true, defaultValue: false },
   "oauth-token": { defaultValue: undefined },
   "client-id": { defaultValue: undefined },
+  "default-download-location": { defaultValue: "" },
+  "download-without-prompt": { defaultValue: true },
 };
 
 export const configKeys = Object.keys(config) as Array<keyof Config>;

@@ -47,11 +47,22 @@ async function restoreSettings() {
 
       if (typeof value === "boolean") elem.checked = value;
       else if (typeof value === "string") elem.value = value;
+
+      const changeEvent = document.createEvent("HTMLEvents");
+      changeEvent.initEvent("change", false, true);
+      elem.dispatchEvent(changeEvent);
     }
   } catch (error) {
     logger.logError("Failed to restore settings!", error);
   }
 }
+
+const downloadWithoutPromptElem = document.querySelector<HTMLInputElement>("#download-without-prompt");
+const defaultDownloadLocationElem = document.querySelector<HTMLInputElement>("#default-download-location");
+
+downloadWithoutPromptElem.onchange = (event: any) => {
+  defaultDownloadLocationElem.disabled = !event.target.checked;
+};
 
 document.addEventListener("DOMContentLoaded", restoreSettings);
 document.querySelector("form").addEventListener("submit", saveSettings);
