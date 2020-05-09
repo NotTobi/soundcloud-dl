@@ -1,6 +1,8 @@
 # Download this extension from the [Firefox Add-ons page](https://addons.mozilla.org/firefox/addon/soundcloud-dl)
 
-[Changelog](./CHANGELOG.md)
+## [Changelog](./CHANGELOG.md)
+
+## [Donations](https://www.paypal.me/nottobii)
 
 ## Configuration
 
