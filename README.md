@@ -20,7 +20,7 @@ Therefor it is a good idea to refresh the page, after you've logged in/out!
 
 - Download favorites
 
-If you want to help implement one of those features, go right ahead! :)
+If you want to help implement one of these features, go right ahead! :)
 
 ## Building instructions for Firefox Add-on review process
 
@@ -44,8 +44,8 @@ The build artifact `SoundCloud-Downloader-Firefox.zip` can be found in the `dist
 
 ### Developer TODOs
 
-- find better way to aquire client_id and oauth token, check if user logged in/out
 - add download support for HLS only files
-- better error handling -> also displaying errors to the user
 - cleanup `background.ts` and `content.ts`
-- add more extractor tests
+- refactor metadataExtractor and add more tests
+- find better way to aquire client_id and oauth token, check if user logged in/out
+- better error handling -> also displaying errors to the user
