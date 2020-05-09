@@ -1,3 +1,8 @@
+## 1.5.3
+
+- Set Release Year metadata tag
+- Change design of options page
+
 ## 1.5.2
 
 - Make download procedure configureable

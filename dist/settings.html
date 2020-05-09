@@ -7,23 +7,16 @@
 
     <style>
       body {
-        width: 600px;
-        overflow: hidden;
-      }
-
-      form {
+        width: 100vw;
+        max-width: 800px;
         padding: 20px;
-        width: 100%;
+        font-size: 16px;
+        overflow: hidden;
       }
 
       .option {
         display: flex;
         align-items: center;
-      }
-
-      label,
-      input {
-        font-size: 14px;
       }
 
       .actions {
@@ -49,8 +42,8 @@
       }
 
       .default-download-location-container {
-        width: 100%;
         margin-left: 22px;
+        margin-right: 22px;
         margin-top: 6px;
       }
 
@@ -69,7 +62,7 @@
       <div class="option">
         <input id="download-original-version" type="checkbox" />
         <label for="download-original-version">
-          Download original version (not always possible / metadata might not be set)
+          Download original version when possible (metadata might not be set)
         </label>
       </div>
       <div class="option">
@@ -83,7 +76,9 @@
           type="text"
           placeholder="e.g. 'SC\DL' => '%UserProfile%\Downloads\SC\DL\<file>.mp3'"
         />
-        <label for="default-download-location">(Relative to the 'Downloads' directory) </label>
+        <div>
+          <label for="default-download-location">(Relative to the 'Downloads' directory) </label>
+        </div>
       </div>
 
       <div class="actions">
