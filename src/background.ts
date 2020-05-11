@@ -307,26 +307,32 @@ async function downloadTrack(track: Track, trackNumber?: number, albumName?: str
   await handleDownload(downloadData, trackNumber, albumName);
 }
 
+interface Playlist {
+  tracks: Track[];
+  set_type: string;
+  title: string;
+}
+
 onMessageFromTab(async (_, message) => {
   if (!message.url) return;
 
   if (message.type === "DOWNLOAD_SET") {
-    // todo: correctly type
-    const set = await soundcloudApi.resolveUrl<{ tracks: Track[]; set_type: string; title: string }>(message.url);
-    const isAlbum = set.set_type === "album";
+    const set = await soundcloudApi.resolveUrl<Playlist>(message.url);
+    const isAlbum = set.set_type === "album" || set.set_type === "ep";
 
     const trackIds = set.tracks.map((i) => i.id);
 
     const keyedTracks = await soundcloudApi.getTracks(trackIds);
     const tracks = Object.values(keyedTracks).reverse();
 
-    logger.logInfo("Downloading playlist...");
+    logger.logInfo(`Downloading ${isAlbum ? "album" : "playlist"}...`);
 
     const downloads = [];
 
     for (let i = 0; i < tracks.length; i++) {
       const trackNumber = isAlbum ? i + 1 : undefined;
       const albumName = isAlbum ? set.title : undefined;
+
       const download = downloadTrack(tracks[i], trackNumber, albumName);
 
       downloads.push(download);
@@ -334,7 +340,7 @@ onMessageFromTab(async (_, message) => {
 
     await Promise.all(downloads);
 
-    logger.logInfo("Downloaded playlist!");
+    logger.logInfo(`Downloaded ${isAlbum ? "album" : "playlist"}!`);
   } else if (message.type === "DOWNLOAD") {
     const track = await soundcloudApi.resolveUrl<Track>(message.url);
 

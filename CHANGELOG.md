@@ -1,3 +1,7 @@
+## 1.5.5
+
+- Treat EPs as albums as well
+
 ## 1.5.4
 
 - When downloading an album, set the correct name
