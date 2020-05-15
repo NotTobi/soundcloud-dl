@@ -156,20 +156,25 @@ const removeReposts = () => {
 };
 
 const handleBlockRepostsConfigChange = (blockReposts: boolean) => {
-  if (blockReposts) removeReposts();
-  else observer.removeEvent("repost");
+  if (blockReposts) {
+    logger.logInfo("Start blocking reposts");
+
+    removeReposts();
+  } else {
+    logger.logInfo("Stop blocking reposts");
+
+    observer.removeEvent("repost");
+  }
 };
 
 registerConfigChangeHandler("block-reposts", handleBlockRepostsConfigChange);
 
-const handlePageLoaded = () => {
-  loadConfiguration(true);
-
+const handlePageLoaded = async () => {
   observer = new DomObserver();
 
-  if (getConfigValue("block-reposts")) removeReposts();
+  await loadConfiguration(true);
 
-  removeBuyLinks();
+  if (getConfigValue("block-reposts")) handleBlockRepostsConfigChange(true);
 
   removeDownloadButtons();
 
