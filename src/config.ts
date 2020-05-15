@@ -27,6 +27,7 @@ interface Config {
   "download-without-prompt": ConfigValue<boolean>;
   "normalize-track": ConfigValue<boolean>;
   "block-reposts": ConfigValue<boolean>;
+  "include-producers": ConfigValue<boolean>;
 }
 
 const config: Config = {
@@ -34,10 +35,11 @@ const config: Config = {
   "download-original-version": { sync: true, defaultValue: false },
   "oauth-token": { defaultValue: undefined },
   "client-id": { defaultValue: undefined },
-  "default-download-location": { defaultValue: undefined },
+  "default-download-location": { defaultValue: "SoundCloud" },
   "download-without-prompt": { sync: true, defaultValue: true },
   "normalize-track": { sync: true, defaultValue: true },
   "block-reposts": { sync: true, defaultValue: false },
+  "include-producers": { sync: true, defaultValue: true },
 };
 
 export const configKeys = Object.keys(config) as Array<keyof Config>;

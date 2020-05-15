@@ -43,7 +43,10 @@ async function handleDownload(data: DownloadData, trackNumber?: number, albumNam
   if (normalizeTrack) {
     const extractor = new MetadataExtractor(data.title, data.username);
 
-    const artists = extractor.getArtists();
+    let artists = extractor.getArtists();
+
+    if (!getConfigValue("include-producers")) artists = artists.filter((i) => i.type !== ArtistType.Producer);
+
     artistsString = artists.map((i) => i.name).join(", ");
     titleString = extractor.getTitle();
     const remixers = artists.filter((i) => i.type === ArtistType.Remixer);

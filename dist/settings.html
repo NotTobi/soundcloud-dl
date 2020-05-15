@@ -70,13 +70,11 @@
         <label for="download-without-prompt">Download to default location without showing a dialog:</label>
       </div>
       <div class="default-download-location-container">
-        <input
-          id="default-download-location"
-          type="text"
-          placeholder="e.g. 'SC\DL' => '%UserProfile%\Downloads\SC\DL\<file>.mp3'"
-        />
+        <input id="default-download-location" type="text" />
         <div>
-          <label for="default-download-location">(Relative to the 'Downloads' directory) </label>
+          <label for="default-download-location">
+            (Path relative to the 'Downloads' directory - can only be a subdirectory)
+          </label>
         </div>
       </div>
       <div class="option">
@@ -86,6 +84,10 @@
       <div class="option">
         <input id="block-reposts" type="checkbox" />
         <label for="block-reposts">Block reposts in 'Stream' feed</label>
+      </div>
+      <div class="option">
+        <input id="include-producers" type="checkbox" />
+        <label for="include-producers">Include producers as artists</label>
       </div>
 
       <div class="actions">
