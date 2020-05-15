@@ -1,6 +1,7 @@
 import { Logger } from "./logger";
 
 export interface ObserverEvent {
+  name?: string;
   selector: string;
   callback: (node: Element) => void;
 }
@@ -44,6 +45,10 @@ export class DomObserver {
     this.events.push(event);
 
     this.logger.logDebug("Event added", event);
+  }
+
+  removeEvent(name: string) {
+    this.events = this.events.filter((event) => event.name !== name);
   }
 
   private handleMutation(mutation: MutationRecord) {

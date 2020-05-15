@@ -1,6 +1,7 @@
 import { DomObserver, ObserverEvent } from "./domObserver";
 import { Logger } from "./logger";
 import { sendMessageToBackend } from "./compatibilityStubs";
+import { registerConfigChangeHandler, loadConfiguration, getConfigValue } from "./config";
 
 let observer: DomObserver | null = null;
 const logger = Logger.create("SoundCloud-Downloader");
@@ -132,8 +133,41 @@ const addDownloadButtonToFeed = () => {
   observer?.addEvent(event);
 };
 
+const removeReposts = () => {
+  const selector = ".soundContext__repost";
+
+  const removeRepost = (node: Element) => {
+    const listItem = node.closest(".soundList__item");
+
+    if (!listItem) return;
+
+    removeElementFromParent(listItem);
+  };
+
+  document.querySelectorAll(selector).forEach(removeRepost);
+
+  const event: ObserverEvent = {
+    name: "repost",
+    selector,
+    callback: removeRepost,
+  };
+
+  observer?.addEvent(event);
+};
+
+const handleBlockRepostsConfigChange = (blockReposts: boolean) => {
+  if (blockReposts) removeReposts();
+  else observer.removeEvent("repost");
+};
+
+registerConfigChangeHandler("block-reposts", handleBlockRepostsConfigChange);
+
 const handlePageLoaded = () => {
+  loadConfiguration(true);
+
   observer = new DomObserver();
+
+  if (getConfigValue("block-reposts")) removeReposts();
 
   removeBuyLinks();
 

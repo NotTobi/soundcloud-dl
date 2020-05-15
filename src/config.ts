@@ -9,6 +9,7 @@ import {
 } from "./compatibilityStubs";
 
 const logger = Logger.create("Config");
+let isStorageMonitored = false;
 
 interface ConfigValue<T> {
   value?: T;
@@ -25,6 +26,7 @@ interface Config {
   "default-download-location": ConfigValue<string>;
   "download-without-prompt": ConfigValue<boolean>;
   "normalize-track": ConfigValue<boolean>;
+  "block-reposts": ConfigValue<boolean>;
 }
 
 const config: Config = {
@@ -35,6 +37,7 @@ const config: Config = {
   "default-download-location": { defaultValue: undefined },
   "download-without-prompt": { sync: true, defaultValue: true },
   "normalize-track": { sync: true, defaultValue: true },
+  "block-reposts": { sync: true, defaultValue: false },
 };
 
 export const configKeys = Object.keys(config) as Array<keyof Config>;
@@ -43,7 +46,7 @@ function isConfigKey(key: string): key is keyof Config {
   return config[key] !== undefined;
 }
 
-export function storeConfigValue<TKey extends keyof Config>(key: TKey, value: Config[TKey]["value"]) {
+export async function storeConfigValue<TKey extends keyof Config>(key: TKey, value: Config[TKey]["value"]) {
   if (!isConfigKey(key)) return Promise.reject(`Invalid config key: ${key}`);
   if (config[key].value === value) return Promise.resolve();
 
@@ -55,10 +58,12 @@ export function storeConfigValue<TKey extends keyof Config>(key: TKey, value: Co
 
   try {
     if (sync) {
-      return setSyncStorage({ [key]: value });
+      await setSyncStorage({ [key]: value });
     } else {
-      return setLocalStorage({ [key]: value });
+      await setLocalStorage({ [key]: value });
     }
+
+    if (config[key].onChanged) config[key].onChanged(value as never);
   } catch (error) {
     const reason = "Failed to store configuration value";
 
@@ -85,7 +90,11 @@ export async function loadConfiguration(monitorStorage: boolean = false) {
     config[key].value = await loadConfigValue(key);
   }
 
-  if (monitorStorage) onStorageChanged(handleStorageChanged);
+  if (monitorStorage && !isStorageMonitored) {
+    onStorageChanged(handleStorageChanged);
+
+    isStorageMonitored = true;
+  }
 
   return config;
 }
@@ -98,6 +107,13 @@ export async function resetConfig() {
 
 export function getConfigValue<TKey extends keyof Config>(key: TKey): Config[TKey]["value"] {
   return config[key].value;
+}
+
+export function registerConfigChangeHandler<TKey extends keyof Config>(
+  key: TKey,
+  callback: (newValue: Config[TKey]["value"]) => void
+) {
+  config[key].onChanged = callback;
 }
 
 const handleStorageChanged = (changes: { [key: string]: StorageChange }) => {
