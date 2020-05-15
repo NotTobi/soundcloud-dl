@@ -1,3 +1,7 @@
+## 1.5.6
+
+- Add ability to block reposts in the 'Stream' feed
+
 ## 1.5.5
 
 - Treat EPs as albums as well

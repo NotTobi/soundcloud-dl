@@ -10,6 +10,14 @@ If you're on soundcloud.com, there should be an icon of this extension next to t
 
 Click on the icon (and click on 'Options' in Chrome) to get to the configuration section.
 
+What can be configured?
+
+- Download of high quality version (you need to be a GO+ user)
+- Download of the original version (when possible)
+- Downloading directly to a default location without a dialog
+- Normalization of the track name
+- Blocking of reposts in the 'Stream' feed
+
 ## Known issues
 
 Changing the user OAuth token, after the user logged in/out can sometimes not work correctly.
@@ -49,3 +57,4 @@ The build artifact `SoundCloud-Downloader-Firefox.zip` can be found in the `dist
 - refactor metadataExtractor and add more tests
 - find better way to aquire client_id and oauth token, check if user logged in/out
 - better error handling -> also displaying errors to the user
+- ability to customize filename, e.g. add track number to beginning
