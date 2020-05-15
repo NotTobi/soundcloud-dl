@@ -1,3 +1,7 @@
+## 1.5.7
+
+- Add ability to toggle, whether producers are treated as artists or not
+
 ## 1.5.6
 
 - Add ability to block reposts in the 'Stream' feed
