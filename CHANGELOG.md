@@ -1,3 +1,8 @@
+## 1.6.0
+
+- Add progressbar to buttons
+- Show errors to the user
+
 ## 1.5.8
 
 - Minor bug fixes
