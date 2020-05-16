@@ -74,7 +74,11 @@ async function handleDownload(data: DownloadData, trackNumber?: number, albumNam
 
   logger.logInfo(`Starting download of '${rawFilename}'...`);
 
-  const [streamBuffer, streamHeaders] = await soundcloudApi.downloadStream(data.streamUrl);
+  const reportProgress = (progress: number) => {
+    console.log("Progress", progress);
+  };
+
+  const [streamBuffer, streamHeaders] = await soundcloudApi.downloadStream(data.streamUrl, reportProgress);
 
   if (!streamBuffer) {
     logger.logError("Failed to download stream");

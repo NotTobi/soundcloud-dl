@@ -50,6 +50,7 @@ interface OriginalDownload {
 }
 
 type KeyedTracks = { [key: number]: Track };
+type ProgressReport = (progress: number) => void;
 
 export class SoundCloudApi {
   readonly baseUrl: string = "https://api-v2.soundcloud.com";
@@ -130,12 +131,61 @@ export class SoundCloudApi {
     return buffer;
   }
 
-  downloadStream(streamUrl: string) {
-    return this.fetchArrayBuffer(streamUrl);
+  downloadStream(streamUrl: string, reportProgress: ProgressReport) {
+    return this.fetchArrayBuffer(streamUrl, reportProgress);
   }
 
-  private async fetchArrayBuffer(url: string): Promise<[ArrayBuffer, Headers]> {
+  private async fetchArrayBuffer(url: string, reportProgress?: ProgressReport): Promise<[ArrayBuffer, Headers]> {
     try {
+      if (reportProgress) {
+        return new Promise((resolve, reject) => {
+          const req = new XMLHttpRequest();
+
+          try {
+            const handleProgress = (event: ProgressEvent<EventTarget>) => {
+              const progress = Math.round((event.loaded / event.total) * 100);
+
+              reportProgress(progress);
+            };
+
+            const handleReadyStateChanged = async (event: Event) => {
+              if (req.readyState == req.DONE) {
+                if (req.status !== 200 || !req.response) {
+                  resolve([null, null]);
+
+                  return;
+                }
+
+                const buffer = await req.response.arrayBuffer();
+
+                if (!buffer) {
+                  resolve([null, null]);
+
+                  return;
+                }
+
+                reportProgress(100);
+
+                // todo parse headers
+                // req.getAllResponseHeaders()
+                const headers = new Headers();
+
+                resolve([buffer, headers]);
+              }
+            };
+
+            req.responseType = "blob";
+            req.onprogress = handleProgress;
+            req.onreadystatechange = handleReadyStateChanged;
+            req.onerror = reject;
+            req.open("GET", url, true);
+            req.send(null);
+          } catch (error) {
+            console.log("fetch err", { error });
+          }
+        });
+      }
+
       const resp = await fetch(url);
 
       if (!resp.ok) return [null, null];
@@ -146,7 +196,7 @@ export class SoundCloudApi {
 
       return [buffer, resp.headers];
     } catch (error) {
-      this.logger.logError("Failed to fetch ArrayBuffer from", url);
+      this.logger.logError(`Failed to fetch ArrayBuffer from: ${url}`, error);
 
       return [null, null];
     }
