@@ -163,38 +163,27 @@ const addDownloadButtonToFeed = () => {
   observer?.addEvent(event);
 };
 
-// todo: a track is only shown once, if it has been reposted by somebody else!
-const removeReposts = () => {
-  const selector = ".soundContext__repost";
-
-  const removeRepost = (node: Element) => {
-    const listItem = node.closest(".soundList__item");
-
-    if (!listItem) return;
-
-    removeElementFromParent(listItem);
-  };
-
-  document.querySelectorAll(selector).forEach(removeRepost);
-
-  const event: ObserverEvent = {
-    name: "repost",
-    selector,
-    callback: removeRepost,
-  };
-
-  observer?.addEvent(event);
-};
-
 const handleBlockRepostsConfigChange = (blockReposts: boolean) => {
   if (blockReposts) {
     logger.logInfo("Start blocking reposts");
 
-    removeReposts();
+    const payloadFile = browser.extension.getURL("/js/repostBlocker.js");
+
+    console.log({ payloadFile });
+
+    const script = document.createElement("script");
+    script.id = "repost-blocker";
+    script.src = payloadFile;
+
+    document.documentElement.appendChild(script);
   } else {
     logger.logInfo("Stop blocking reposts");
 
-    observer.removeEvent("repost");
+    const script = document.getElementById("repost-blocker");
+
+    if (!script) return;
+
+    document.documentElement.removeChild(script);
   }
 };
 

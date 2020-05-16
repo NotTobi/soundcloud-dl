@@ -8,6 +8,7 @@ module.exports = {
     content: "./src/content.ts",
     background: "./src/background.ts",
     settings: "./src/settings.ts",
+    repostBlocker: "./src/repostBlocker.ts",
   },
 
   output: {
