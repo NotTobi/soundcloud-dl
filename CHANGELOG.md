@@ -1,3 +1,7 @@
+## 1.5.8
+
+- Minor bug fixes
+
 ## 1.5.7
 
 - Add ability to toggle, whether producers are treated as artists or not
