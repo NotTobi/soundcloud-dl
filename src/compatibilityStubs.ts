@@ -1,6 +1,5 @@
 import { Logger } from "./logger";
 
-// const urlFilter = { urls: ["*://api-v2.soundcloud.com/*"] };
 const logger = Logger.create("Compatibility Stubs");
 
 type BeforeSendHeadersCallback = (details: any) => any;
@@ -176,5 +175,17 @@ export const getLocalStorage = (keys?: string | string[]) => {
     return new Promise<{ [key: string]: any }>((resolve) => chrome.storage.local.get(keys, resolve));
   } else {
     return Promise.reject("Browser does not support storage.local.get");
+  }
+};
+
+export const getExtensionManifest = () => {
+  if (typeof browser !== "undefined") {
+    return browser.runtime.getManifest();
+  } else if (typeof chrome !== "undefined") {
+    return chrome.runtime.getManifest();
+  } else {
+    logger.logError("Browser does not support runtime.getManifest()");
+
+    return null;
   }
 };

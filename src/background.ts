@@ -7,6 +7,7 @@ import {
   onMessageFromTab,
   onPageActionClicked,
   openOptionsPage,
+  getExtensionManifest,
 } from "./compatibilityStubs";
 import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
 import { Mp3TagWriter } from "./mp3TagWriter";
@@ -16,6 +17,9 @@ import { Mp4TagWriter } from "./mp4TagWriter";
 
 const soundcloudApi = new SoundCloudApi();
 const logger = Logger.create("Background");
+const manifest = getExtensionManifest();
+
+logger.logInfo("Starting with version: " + manifest.version);
 
 loadConfiguration(true);
 
