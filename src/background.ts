@@ -4,7 +4,7 @@ import {
   onBeforeSendHeaders,
   onBeforeRequest,
   downloadToFile,
-  onMessageFromTab,
+  onMessage,
   onPageActionClicked,
   openOptionsPage,
   getExtensionManifest,
@@ -38,7 +38,12 @@ interface DownloadData {
   fileExtension?: string;
 }
 
-async function handleDownload(data: DownloadData, trackNumber?: number, albumName?: string) {
+async function handleDownload(
+  data: DownloadData,
+  trackNumber: number | undefined,
+  albumName: string | undefined,
+  reportProgress: (progress?: number, error?: string) => void
+) {
   let normalizeTrack = getConfigValue("normalize-track");
 
   let artistsString = data.username;
@@ -73,10 +78,6 @@ async function handleDownload(data: DownloadData, trackNumber?: number, albumNam
   }
 
   logger.logInfo(`Starting download of '${rawFilename}'...`);
-
-  const reportProgress = (progress: number) => {
-    console.log("Progress", progress);
-  };
 
   const [streamBuffer, streamHeaders] = await soundcloudApi.downloadStream(data.streamUrl, reportProgress);
 
@@ -272,7 +273,12 @@ onBeforeRequest(
   ["blocking"]
 );
 
-async function downloadTrack(track: Track, trackNumber?: number, albumName?: string) {
+async function downloadTrack(
+  track: Track,
+  trackNumber: number | undefined,
+  albumName: string | undefined,
+  reportProgress: (progress?: number, error?: string) => void
+) {
   if (!track || track.kind !== "track" || track.state !== "finished" || !track.streamable) {
     logger.logError("Track is not streamable", track);
     return;
@@ -316,7 +322,7 @@ async function downloadTrack(track: Track, trackNumber?: number, albumName?: str
     avatarUrl: track.user.avatar_url,
   };
 
-  await handleDownload(downloadData, trackNumber, albumName);
+  await handleDownload(downloadData, trackNumber, albumName, reportProgress);
 }
 
 interface Playlist {
@@ -325,11 +331,38 @@ interface Playlist {
   title: string;
 }
 
-onMessageFromTab(async (_, message) => {
-  if (!message.url) return;
+interface DownloadRequest {
+  type: string;
+  url: string;
+  downloadId: string;
+}
 
-  if (message.type === "DOWNLOAD_SET") {
-    const set = await soundcloudApi.resolveUrl<Playlist>(message.url);
+interface DownloadProgress {
+  downloadId: string;
+  progress?: number;
+  error?: string;
+}
+
+function sendDownloadProgress(tabId, downloadId: string, progress?: number, error?: string) {
+  const downloadProgress: DownloadProgress = {
+    downloadId,
+    progress,
+    error,
+  };
+
+  // todo: abstract for chrome
+  browser.tabs.sendMessage(tabId, downloadProgress);
+}
+
+// todo: already report progress/errors when fetching, etc.
+onMessage(async (sender, message: DownloadRequest) => {
+  const tabId = sender.tab.id;
+  const { downloadId, url, type } = message;
+
+  if (!tabId || !url || !downloadId) return;
+
+  if (type === "DOWNLOAD_SET") {
+    const set = await soundcloudApi.resolveUrl<Playlist>(url);
     const isAlbum = set.set_type === "album" || set.set_type === "ep";
 
     const trackIds = set.tracks.map((i) => i.id);
@@ -340,12 +373,23 @@ onMessageFromTab(async (_, message) => {
     logger.logInfo(`Downloading ${isAlbum ? "album" : "playlist"}...`);
 
     const downloads = [];
+    const progresses: { [key: number]: number } = {};
+
+    const reportPlaylistProgress = (trackId: number) => (progress?: number, error?: string) => {
+      if (progress) {
+        progresses[trackId] = progress;
+      }
+
+      const totalProgress = Object.values(progresses).reduce((acc, cur) => acc + cur, 0);
+
+      sendDownloadProgress(tabId, downloadId, totalProgress / trackIds.length, error);
+    };
 
     for (let i = 0; i < tracks.length; i++) {
       const trackNumber = isAlbum ? i + 1 : undefined;
       const albumName = isAlbum ? set.title : undefined;
 
-      const download = downloadTrack(tracks[i], trackNumber, albumName);
+      const download = downloadTrack(tracks[i], trackNumber, albumName, reportPlaylistProgress(tracks[i].id));
 
       downloads.push(download);
     }
@@ -353,10 +397,14 @@ onMessageFromTab(async (_, message) => {
     await Promise.all(downloads);
 
     logger.logInfo(`Downloaded ${isAlbum ? "album" : "playlist"}!`);
-  } else if (message.type === "DOWNLOAD") {
-    const track = await soundcloudApi.resolveUrl<Track>(message.url);
+  } else if (type === "DOWNLOAD") {
+    const track = await soundcloudApi.resolveUrl<Track>(url);
 
-    await downloadTrack(track);
+    const reportTrackProgress = (progress?: number, error?: string) => {
+      sendDownloadProgress(tabId, downloadId, progress, error);
+    };
+
+    await downloadTrack(track, undefined, undefined, reportTrackProgress);
   }
 });
 

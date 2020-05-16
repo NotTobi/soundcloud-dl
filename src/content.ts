@@ -1,10 +1,22 @@
 import { DomObserver, ObserverEvent } from "./domObserver";
 import { Logger } from "./logger";
-import { sendMessageToBackend } from "./compatibilityStubs";
+import { sendMessageToBackend, onMessage } from "./compatibilityStubs";
 import { registerConfigChangeHandler, loadConfiguration, getConfigValue } from "./config";
+import { v4 as uuid } from "uuid";
+
+type KeyedButtons = { [key: string]: HTMLButtonElement };
+type OnButtonClicked = (downloadId: string) => Promise<any>;
 
 let observer: DomObserver | null = null;
 const logger = Logger.create("SoundCloud-Downloader");
+
+const downloadButtons: KeyedButtons = {};
+
+const handleMessageFromBackgroundScript = async (_, message: any) => {
+  console.log("Progress of " + message.downloadId, message.progress);
+};
+
+onMessage(handleMessageFromBackgroundScript);
 
 const createDownloadButton = () => {
   const button = document.createElement("button");
@@ -15,7 +27,7 @@ const createDownloadButton = () => {
   return button;
 };
 
-const addDownloadButtonToParent = (parent: Node & ParentNode, onClicked: () => Promise<any>) => {
+const addDownloadButtonToParent = (parent: Node & ParentNode, onClicked: OnButtonClicked) => {
   const downloadButtonExists = parent.querySelector("button.sc-button-download") !== null;
 
   if (downloadButtonExists) {
@@ -27,17 +39,14 @@ const addDownloadButtonToParent = (parent: Node & ParentNode, onClicked: () => P
   const button = createDownloadButton();
   button.onclick = async () => {
     button.disabled = true;
-    button.title = "Downloading...";
-    button.innerText = "Downloading...";
+    button.title = button.innerText = "Downloading...";
 
-    await onClicked();
+    const downloadId = uuid();
 
-    button.disabled = false;
-    button.title = "Download";
-    button.innerText = "Download";
+    downloadButtons[downloadId] = button;
+
+    await onClicked(downloadId);
   };
-
-  logger.logDebug("Adding download button...", { parent });
 
   parent.appendChild(button);
 };
@@ -73,12 +82,13 @@ const removeDownloadButtons = () => {
   removeElementsMatchingSelectors("button.sc-button-download");
 };
 
-const createDownloadCommand = (url: string) => () => {
+const createDownloadCommand = (url: string) => (downloadId: string) => {
   const set = url.includes("/sets/");
 
   return sendMessageToBackend({
     type: set ? "DOWNLOAD_SET" : "DOWNLOAD",
-    url: url,
+    url,
+    downloadId,
   });
 };
 
@@ -175,6 +185,8 @@ const handlePageLoaded = async () => {
   await loadConfiguration(true);
 
   if (getConfigValue("block-reposts")) handleBlockRepostsConfigChange(true);
+
+  removeBuyLinks();
 
   removeDownloadButtons();
 

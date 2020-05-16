@@ -28,22 +28,22 @@ export const onBeforeRequest = (callback: OnBeforeRequestCallback, urls: string[
   }
 };
 
-type MessageFromTabCallback = (tabId: number, message: any) => Promise<any>;
+type MessageFromTabCallback = (sender: any, message: any) => void;
 
-export const onMessageFromTab = (callback: MessageFromTabCallback) => {
+export const onMessage = (callback: MessageFromTabCallback) => {
   if (typeof browser !== "undefined") {
-    browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    browser.runtime.onMessage.addListener((message, sender) => {
       if (sender.id !== browser.runtime.id || !message) return;
 
-      callback(sender.tab.id, message).then((resp) => sendResponse(resp));
+      callback(sender, message);
 
       return true;
     });
   } else if (typeof chrome !== "undefined") {
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener((message, sender) => {
       if (sender.id !== chrome.runtime.id || !message) return;
 
-      callback(sender.tab.id, message).then((resp) => sendResponse(resp));
+      callback(sender, message);
 
       return true;
     });
