@@ -4,7 +4,12 @@ import { sendMessageToBackend, onMessage, getPathFromExtensionFile } from "./com
 import { registerConfigChangeHandler, loadConfiguration, getConfigValue } from "./config";
 import { v4 as uuid } from "uuid";
 
-type KeyedButtons = { [key: string]: HTMLButtonElement };
+interface DownloadButton {
+  elem: HTMLButtonElement;
+  onClick: any;
+}
+
+type KeyedButtons = { [key: string]: DownloadButton };
 type OnButtonClicked = (downloadId: string) => Promise<any>;
 
 let observer: DomObserver | null = null;
@@ -12,28 +17,54 @@ const logger = Logger.create("SoundCloud-Downloader");
 
 const downloadButtons: KeyedButtons = {};
 
+const setButtonText = (button: HTMLButtonElement, text: string, title?: string) => {
+  button.innerText = text;
+
+  button.title = title ?? text;
+};
+
+const resetButtonBackground = (button: HTMLButtonElement) => {
+  button.style.backgroundColor = "";
+  button.style.background = "";
+};
+
 const handleMessageFromBackgroundScript = async (_, message: any) => {
   const { downloadId, progress, error } = message;
 
-  const downloadButton = downloadButtons[downloadId];
+  const { elem: downloadButton, onClick: originalOnClick } = downloadButtons[downloadId];
 
   if (!downloadButton) return;
 
   if (progress === 100) {
-    downloadButton.title = downloadButton.innerText = "Download";
-    downloadButton.style.background = "";
+    resetButtonBackground(downloadButton);
+
+    downloadButton.style.backgroundColor = "#19a352";
+
+    setButtonText(downloadButton, "Downloaded!");
+
+    setTimeout(() => {
+      resetButtonBackground(downloadButton);
+
+      setButtonText(downloadButton, "Download");
+
+      downloadButton.style.cursor = "pointer";
+      downloadButton.onclick = originalOnClick;
+
+      delete downloadButtons[downloadId];
+    }, 2000);
   } else if (progress) {
-    downloadButton.title = downloadButton.innerText = "Downloading...";
+    setButtonText(downloadButton, "Downloading...");
+
     downloadButton.style.background = `linear-gradient(90deg, #ff5419 ${progress}%, transparent 0%)`;
   }
 
   if (error) {
-    downloadButton.style.backgroundColor = "#ff1744";
-    downloadButton.title = error;
-    downloadButton.innerText = "ERROR";
-  }
+    resetButtonBackground(downloadButton);
 
-  if (error || progress === 100) {
+    downloadButton.style.backgroundColor = "#d30029";
+
+    setButtonText(downloadButton, "ERROR", error);
+
     delete downloadButtons[downloadId];
   }
 };
@@ -45,7 +76,7 @@ const createDownloadButton = (small?: boolean) => {
   const buttonSizeClass = small ? "sc-button-small" : "sc-button-medium";
 
   button.className = `sc-button-download sc-button ${buttonSizeClass} sc-button-responsive`;
-  button.title = button.innerText = "Download";
+  setButtonText(button, "Download");
 
   return button;
 };
@@ -63,7 +94,14 @@ const addDownloadButtonToParent = (parent: Node & ParentNode, onClicked: OnButto
   button.onclick = async () => {
     const downloadId = uuid();
 
-    downloadButtons[downloadId] = button;
+    downloadButtons[downloadId] = {
+      elem: button,
+      onClick: button.onclick,
+    };
+
+    button.style.cursor = "default";
+    button.onclick = null;
+    setButtonText(button, "Preparing...");
 
     await onClicked(downloadId);
   };
