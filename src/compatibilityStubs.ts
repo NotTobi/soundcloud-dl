@@ -61,6 +61,8 @@ export const downloadToFile = (url: string, filename: string, saveAs: boolean) =
   };
 
   return new Promise(async (resolve, reject) => {
+    let downloadId;
+
     if (typeof browser !== "undefined") {
       const onChangedHandler = (delta: { id: number; state?: { current?: string } }) => {
         if (delta.id === downloadId) {
@@ -73,10 +75,8 @@ export const downloadToFile = (url: string, filename: string, saveAs: boolean) =
 
       browser.downloads.onChanged.addListener(onChangedHandler);
 
-      const downloadId = await browser.downloads.download(downloadOptions);
+      downloadId = await browser.downloads.download(downloadOptions);
     } else if (typeof chrome !== "undefined") {
-      let downloadId;
-
       const onChangedHandler = (delta: { id: number; state?: { current?: string } }) => {
         if (delta.id === downloadId) {
           resolve();
