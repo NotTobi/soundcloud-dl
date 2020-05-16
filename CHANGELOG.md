@@ -1,3 +1,7 @@
+## 1.6.1
+
+- Better repost blocking
+
 ## 1.6.0
 
 - Add progressbar to buttons
