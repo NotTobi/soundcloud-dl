@@ -1,3 +1,7 @@
+## 1.6.2
+
+- Minor bug fixes / improvements
+
 ## 1.6.1
 
 - Better repost blocking
