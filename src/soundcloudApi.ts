@@ -168,9 +168,21 @@ export class SoundCloudApi {
 
                 reportProgress(100);
 
-                // todo parse headers
-                // req.getAllResponseHeaders()
                 const headers = new Headers();
+
+                const headerString = req.getAllResponseHeaders();
+                const headerMap = headerString
+                  .split("\r\n")
+                  .filter((i) => !!i)
+                  .map((i) => {
+                    const [name, value] = i.split(": ");
+
+                    return [name, value];
+                  });
+
+                for (const [name, value] of headerMap) {
+                  headers.set(name, value);
+                }
 
                 resolve([req.response, headers]);
               }
