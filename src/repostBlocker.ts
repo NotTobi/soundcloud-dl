@@ -5,7 +5,7 @@ const isStreamUrl = (url: URL) => url && url.hostname === "api-v2.soundcloud.com
 const filterReposts = (collection: any[]) => {
   if (!collection) return [];
 
-  const followedArtistIds = getConfigValue("followed-artists");
+  const followedArtistIds = getConfigValue("followed-artists") ?? [];
   const filtered = [];
 
   for (const item of collection) {

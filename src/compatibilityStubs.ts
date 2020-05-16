@@ -103,6 +103,16 @@ export const sendMessageToBackend = (message: any) => {
   }
 };
 
+export const sendMessageToTab = (tabId: number, message: any) => {
+  if (typeof browser !== "undefined") {
+    return browser.tabs.sendMessage(tabId, message);
+  } else if (typeof chrome !== "undefined") {
+    return new Promise((resolve) => chrome.tabs.sendMessage(tabId, message, resolve));
+  } else {
+    return Promise.reject("Browser does not support tabs.sendMessage");
+  }
+};
+
 export const onPageActionClicked = (callback: (tabId: number) => void) => {
   if (typeof browser !== "undefined") {
     browser.pageAction.onClicked.addListener((tab) => callback(tab.id));
@@ -184,7 +194,19 @@ export const getExtensionManifest = () => {
   } else if (typeof chrome !== "undefined") {
     return chrome.runtime.getManifest();
   } else {
-    logger.logError("Browser does not support runtime.getManifest()");
+    logger.logError("Browser does not support runtime.getManifest");
+
+    return null;
+  }
+};
+
+export const getPathFromExtensionFile = (relativePath: string) => {
+  if (typeof browser !== "undefined") {
+    return browser.extension.getURL(relativePath);
+  } else if (typeof chrome !== "undefined") {
+    return chrome.extension.getURL(relativePath);
+  } else {
+    logger.logError("Browser does not support extension.getURL");
 
     return null;
   }

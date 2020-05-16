@@ -77,7 +77,7 @@ export class SoundCloudApi {
 
     const data = await this.fetchJson<any>(url);
 
-    if (!data || !data.collection) return [];
+    if (!data || !data.collection) return null;
 
     return data.collection;
   }

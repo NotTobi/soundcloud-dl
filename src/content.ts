@@ -1,6 +1,6 @@
 import { DomObserver, ObserverEvent } from "./domObserver";
 import { Logger } from "./logger";
-import { sendMessageToBackend, onMessage } from "./compatibilityStubs";
+import { sendMessageToBackend, onMessage, getPathFromExtensionFile } from "./compatibilityStubs";
 import { registerConfigChangeHandler, loadConfiguration, getConfigValue } from "./config";
 import { v4 as uuid } from "uuid";
 
@@ -167,8 +167,9 @@ const handleBlockRepostsConfigChange = (blockReposts: boolean) => {
   if (blockReposts) {
     logger.logInfo("Start blocking reposts");
 
-    // todo: abstract for different browsers
-    const payloadFile = browser.extension.getURL("/js/repostBlocker.js");
+    const payloadFile = getPathFromExtensionFile("/js/repostBlocker.js");
+
+    if (!payloadFile) return;
 
     const script = document.createElement("script");
     script.id = "repost-blocker";

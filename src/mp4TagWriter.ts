@@ -177,8 +177,9 @@ class Mp4 {
     return new Blob(buffers, { type: "audio/mp4" });
   }
 
-  // todo handle case where path is empty, e.g. add as root atom
   private _insertAtom(atom: Atom, path: string[]) {
+    if (!path) throw new Error("Path can not be empty");
+
     const parentAtom = this._findAtom(this._atoms, path);
 
     if (parentAtom === null) throw new Error(`Parent atom at path '${path.join(" > ")}' could not be found`);

@@ -8,6 +8,7 @@ import {
   onPageActionClicked,
   openOptionsPage,
   getExtensionManifest,
+  sendMessageToTab,
 } from "./compatibilityStubs";
 import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
 import { Mp3TagWriter } from "./mp3TagWriter";
@@ -369,11 +370,9 @@ function sendDownloadProgress(tabId, downloadId: string, progress?: number, erro
     error,
   };
 
-  // todo: abstract for chrome
-  browser.tabs.sendMessage(tabId, downloadProgress);
+  sendMessageToTab(tabId, downloadProgress);
 }
 
-// todo: already report progress/errors when fetching, etc.
 onMessage(async (sender, message: DownloadRequest) => {
   const tabId = sender.tab.id;
   const { downloadId, url, type } = message;
@@ -444,13 +443,23 @@ const oauthTokenChanged = async (token: string) => {
 
   const user = await soundcloudApi.getCurrentUser();
 
-  if (!user) return;
+  if (!user) {
+    logger.logError("Failed to fetch currently logged in user");
+
+    return;
+  }
 
   storeConfigValue("user-id", user.id);
 
   logger.logInfo("Logged in as", user.username);
 
   const followedArtistIds = await soundcloudApi.getFollowedArtistIds(user.id);
+
+  if (!followedArtistIds) {
+    logger.logError("Failed to fetch ids of followed artists");
+
+    return;
+  }
 
   storeConfigValue("followed-artists", followedArtistIds);
 };

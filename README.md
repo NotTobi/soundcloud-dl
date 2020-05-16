@@ -57,3 +57,4 @@ The build artifact `SoundCloud-Downloader-Firefox.zip` can be found in the `dist
 - refactor metadataExtractor and add more tests
 - find better way to aquire client_id and oauth token, check if user logged in/out
 - ability to customize filename, e.g. add track number to beginning
+- update followed artists, when new artist is followed or existing is removed
