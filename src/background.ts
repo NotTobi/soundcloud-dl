@@ -20,7 +20,7 @@ const logger = Logger.create("Background");
 loadConfiguration(true);
 
 function sanitizeFileName(input: string) {
-  return input.replace(/[\\\/\:\*\?\"\'\<\>\~\|]+/g, "");
+  return input.replace(/[\*\\:?"'<>~|]+/, "").replace(/\s{2,}/, " ");
 }
 
 interface DownloadData {
@@ -60,7 +60,6 @@ async function handleDownload(data: DownloadData, trackNumber?: number, albumNam
   }
 
   const rawFilename = `${artistsString} - ${titleString}`;
-  const filename = sanitizeFileName(rawFilename);
 
   let artworkUrl = data.artworkUrl;
 
@@ -69,7 +68,7 @@ async function handleDownload(data: DownloadData, trackNumber?: number, albumNam
     artworkUrl = data.avatarUrl;
   }
 
-  logger.logInfo(`Starting download of '${filename}'...`);
+  logger.logInfo(`Starting download of '${rawFilename}'...`);
 
   const [streamBuffer, streamHeaders] = await soundcloudApi.downloadStream(data.streamUrl);
 
@@ -152,15 +151,17 @@ async function handleDownload(data: DownloadData, trackNumber?: number, albumNam
   const downloadUrl = URL.createObjectURL(downloadBlob);
   const saveAs = !getConfigValue("download-without-prompt");
   const defaultDownloadLocation = getConfigValue("default-download-location");
-  let downloadFilename = filename + "." + data.fileExtension;
+  let downloadFilename = rawFilename + "." + data.fileExtension;
 
   if (!saveAs && defaultDownloadLocation) {
     downloadFilename = defaultDownloadLocation.replace(/^\/+/g, "") + "/" + downloadFilename;
   }
 
+  downloadFilename = sanitizeFileName(downloadFilename);
+
   await downloadToFile(downloadUrl, downloadFilename, saveAs);
 
-  logger.logInfo(`Successfully downloaded '${filename}'!`);
+  logger.logInfo(`Successfully downloaded '${rawFilename}'!`);
 
   URL.revokeObjectURL(downloadUrl);
 }
