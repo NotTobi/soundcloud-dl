@@ -43,7 +43,7 @@ const config: Config = {
   "normalize-track": { sync: true, defaultValue: true },
   "block-reposts": { sync: true, defaultValue: false },
   "include-producers": { sync: true, defaultValue: true },
-  "followed-artists": {  defaultValue: [] },
+  "followed-artists": { defaultValue: [] },
 };
 
 export const configKeys = Object.keys(config) as Array<keyof Config>;
@@ -69,9 +69,9 @@ export async function storeConfigValue<TKey extends keyof Config>(key: TKey, val
       await setLocalStorage({ [key]: value });
     }
 
-    if (config[key].onCha
-
-      console.log({ followedArtistIds });d to store configuration value";
+    if (config[key].onChanged) config[key].onChanged(value as never);
+  } catch (error) {
+    const reason = "Failed to store configuration value";
 
     logger.logError(reason, { key, value, sync });
 
