@@ -60,16 +60,26 @@ export class SoundCloudApi {
     this.logger = Logger.create("SoundCloudApi");
   }
 
-  async resolveUrl<T>(url: string) {
+  resolveUrl<T>(url: string) {
     const reqUrl = `${this.baseUrl}/resolve?url=${url}`;
 
-    return await this.fetchJson<T>(reqUrl);
+    return this.fetchJson<T>(reqUrl);
   }
 
-  async getCurrentUser(oauthToken: string) {
-    const url = `${this.baseUrl}/me?oauth_token=${oauthToken}`;
+  getCurrentUser() {
+    const url = `${this.baseUrl}/me`;
 
-    return await this.fetchJson<User>(url);
+    return this.fetchJson<User>(url);
+  }
+
+  async getFollowedArtistIds(userId: number): Promise<number[]> {
+    const url = `${this.baseUrl}/users/${userId}/followings/ids`;
+
+    const data = await this.fetchJson<any>(url);
+
+    if (!data || !data.collection) return [];
+
+    return data.collection;
   }
 
   async getTracks(trackIds: number[]): Promise<KeyedTracks> {

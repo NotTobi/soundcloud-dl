@@ -1,16 +1,19 @@
+import { getConfigValue } from "./config";
+
 const isStreamUrl = (url: URL) => url && url.hostname === "api-v2.soundcloud.com" && url.pathname === "/stream";
 
 const filterReposts = (collection: any[]) => {
   if (!collection) return [];
 
+  const followedArtistIds = getConfigValue("followed-artists");
   const filtered = [];
 
   for (const item of collection) {
-    if (item.type === "track-repost") {
+    if (item.type === "track-repost" && !followedArtistIds.includes(item.track.user_id)) {
       continue;
     }
 
-    if (item.type === "playlist-repost") {
+    if (item.type === "playlist-repost" && !followedArtistIds.includes(item.playlist.user_id)) {
       continue;
     }
 

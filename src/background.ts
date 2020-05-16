@@ -11,7 +11,7 @@ import {
 } from "./compatibilityStubs";
 import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
 import { Mp3TagWriter } from "./mp3TagWriter";
-import { loadConfiguration, storeConfigValue, getConfigValue } from "./config";
+import { loadConfiguration, storeConfigValue, getConfigValue, registerConfigChangeHandler } from "./config";
 import { TagWriter } from "./tagWriter";
 import { Mp4TagWriter } from "./mp4TagWriter";
 
@@ -261,6 +261,8 @@ onBeforeRequest(
       logger.logInfo("User logged out");
 
       storeConfigValue("oauth-token", null);
+      storeConfigValue("user-id", null);
+      storeConfigValue("followed-artists", []);
     } else {
       const clientId = url.searchParams.get("client_id");
 
@@ -436,3 +438,21 @@ onMessage(async (sender, message: DownloadRequest) => {
 onPageActionClicked(() => {
   openOptionsPage();
 });
+
+const oauthTokenChanged = async (token: string) => {
+  if (!token) return;
+
+  const user = await soundcloudApi.getCurrentUser();
+
+  if (!user) return;
+
+  storeConfigValue("user-id", user.id);
+
+  logger.logInfo("Logged in as", user.username);
+
+  const followedArtistIds = await soundcloudApi.getFollowedArtistIds(user.id);
+
+  storeConfigValue("followed-artists", followedArtistIds);
+};
+
+registerConfigChangeHandler("oauth-token", oauthTokenChanged);
