@@ -167,9 +167,8 @@ const handleBlockRepostsConfigChange = (blockReposts: boolean) => {
   if (blockReposts) {
     logger.logInfo("Start blocking reposts");
 
+    // todo: abstract for different browsers
     const payloadFile = browser.extension.getURL("/js/repostBlocker.js");
-
-    console.log({ payloadFile });
 
     const script = document.createElement("script");
     script.id = "repost-blocker";
@@ -187,14 +186,8 @@ const handleBlockRepostsConfigChange = (blockReposts: boolean) => {
   }
 };
 
-registerConfigChangeHandler("block-reposts", handleBlockRepostsConfigChange);
-
 const handlePageLoaded = async () => {
   observer = new DomObserver();
-
-  await loadConfiguration(true);
-
-  if (getConfigValue("block-reposts")) handleBlockRepostsConfigChange(true);
 
   removeBuyLinks();
 
@@ -221,3 +214,9 @@ window.onbeforeunload = () => {
   observer?.stop();
   logger.logDebug("Unattached!");
 };
+
+loadConfiguration(true).then(() => {
+  registerConfigChangeHandler("block-reposts", handleBlockRepostsConfigChange);
+
+  if (getConfigValue("block-reposts")) handleBlockRepostsConfigChange(true);
+});

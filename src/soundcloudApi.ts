@@ -156,25 +156,17 @@ export class SoundCloudApi {
                   return;
                 }
 
-                const buffer = await req.response.arrayBuffer();
-
-                if (!buffer) {
-                  resolve([null, null]);
-
-                  return;
-                }
-
                 reportProgress(100);
 
                 // todo parse headers
                 // req.getAllResponseHeaders()
                 const headers = new Headers();
 
-                resolve([buffer, headers]);
+                resolve([req.response, headers]);
               }
             };
 
-            req.responseType = "blob";
+            req.responseType = "arraybuffer";
             req.onprogress = handleProgress;
             req.onreadystatechange = handleReadyStateChanged;
             req.onerror = reject;
