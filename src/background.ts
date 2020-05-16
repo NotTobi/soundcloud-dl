@@ -84,6 +84,8 @@ async function handleDownload(
   if (!streamBuffer) {
     logger.logError("Failed to download stream");
 
+    reportProgress(undefined, "Failed to download stream");
+
     return;
   }
 
@@ -168,11 +170,17 @@ async function handleDownload(
 
   downloadFilename = sanitizeFileName(downloadFilename);
 
-  await downloadToFile(downloadUrl, downloadFilename, saveAs);
+  try {
+    await downloadToFile(downloadUrl, downloadFilename, saveAs);
 
-  logger.logInfo(`Successfully downloaded '${rawFilename}'!`);
+    logger.logInfo(`Successfully downloaded '${rawFilename}'!`);
+  } catch (error) {
+    logger.logError("Failed to add track to downloads", { downloadFilename, saveAs });
 
-  URL.revokeObjectURL(downloadUrl);
+    reportProgress(undefined, "Failed to add track to downloads");
+  } finally {
+    URL.revokeObjectURL(downloadUrl);
+  }
 }
 
 function getProgressiveStreamUrl(details: Track): string | null {
@@ -281,6 +289,9 @@ async function downloadTrack(
 ) {
   if (!track || track.kind !== "track" || track.state !== "finished" || !track.streamable) {
     logger.logError("Track is not streamable", track);
+
+    reportProgress(undefined, "Track is not streamable");
+
     return;
   }
 
@@ -300,6 +311,9 @@ async function downloadTrack(
 
     if (!progressiveStreamUrl) {
       logger.logError("Progressive stream URL could not be determined", track);
+
+      reportProgress(undefined, "Progressive stream URL could not be determined");
+
       return;
     }
 
@@ -308,6 +322,9 @@ async function downloadTrack(
 
   if (!stream) {
     logger.logError("Stream could not be determined");
+
+    reportProgress(undefined, "Stream could not be determined");
+
     return;
   }
 
@@ -359,52 +376,60 @@ onMessage(async (sender, message: DownloadRequest) => {
   const tabId = sender.tab.id;
   const { downloadId, url, type } = message;
 
-  if (!tabId || !url || !downloadId) return;
+  if (!tabId) return;
 
-  if (type === "DOWNLOAD_SET") {
-    const set = await soundcloudApi.resolveUrl<Playlist>(url);
-    const isAlbum = set.set_type === "album" || set.set_type === "ep";
+  try {
+    if (type === "DOWNLOAD_SET") {
+      const set = await soundcloudApi.resolveUrl<Playlist>(url);
+      const isAlbum = set.set_type === "album" || set.set_type === "ep";
 
-    const trackIds = set.tracks.map((i) => i.id);
+      const trackIds = set.tracks.map((i) => i.id);
 
-    const keyedTracks = await soundcloudApi.getTracks(trackIds);
-    const tracks = Object.values(keyedTracks).reverse();
+      const keyedTracks = await soundcloudApi.getTracks(trackIds);
+      const tracks = Object.values(keyedTracks).reverse();
 
-    logger.logInfo(`Downloading ${isAlbum ? "album" : "playlist"}...`);
+      logger.logInfo(`Downloading ${isAlbum ? "album" : "playlist"}...`);
 
-    const downloads = [];
-    const progresses: { [key: number]: number } = {};
+      const downloads = [];
+      const progresses: { [key: number]: number } = {};
 
-    const reportPlaylistProgress = (trackId: number) => (progress?: number, error?: string) => {
-      if (progress) {
-        progresses[trackId] = progress;
+      const reportPlaylistProgress = (trackId: number) => (progress?: number, error?: string) => {
+        if (progress) {
+          progresses[trackId] = progress;
+        }
+
+        const totalProgress = Object.values(progresses).reduce((acc, cur) => acc + cur, 0);
+
+        sendDownloadProgress(tabId, downloadId, totalProgress / trackIds.length, error);
+      };
+
+      for (let i = 0; i < tracks.length; i++) {
+        const trackNumber = isAlbum ? i + 1 : undefined;
+        const albumName = isAlbum ? set.title : undefined;
+
+        const download = downloadTrack(tracks[i], trackNumber, albumName, reportPlaylistProgress(tracks[i].id));
+
+        downloads.push(download);
       }
 
-      const totalProgress = Object.values(progresses).reduce((acc, cur) => acc + cur, 0);
+      await Promise.all(downloads);
 
-      sendDownloadProgress(tabId, downloadId, totalProgress / trackIds.length, error);
-    };
+      logger.logInfo(`Downloaded ${isAlbum ? "album" : "playlist"}!`);
+    } else if (type === "DOWNLOAD") {
+      const track = await soundcloudApi.resolveUrl<Track>(url);
 
-    for (let i = 0; i < tracks.length; i++) {
-      const trackNumber = isAlbum ? i + 1 : undefined;
-      const albumName = isAlbum ? set.title : undefined;
+      const reportTrackProgress = (progress?: number, error?: string) => {
+        sendDownloadProgress(tabId, downloadId, progress, error);
+      };
 
-      const download = downloadTrack(tracks[i], trackNumber, albumName, reportPlaylistProgress(tracks[i].id));
-
-      downloads.push(download);
+      await downloadTrack(track, undefined, undefined, reportTrackProgress);
+    } else {
+      throw new Error("Unknown download type");
     }
+  } catch (error) {
+    sendDownloadProgress(tabId, downloadId, undefined, error);
 
-    await Promise.all(downloads);
-
-    logger.logInfo(`Downloaded ${isAlbum ? "album" : "playlist"}!`);
-  } else if (type === "DOWNLOAD") {
-    const track = await soundcloudApi.resolveUrl<Track>(url);
-
-    const reportTrackProgress = (progress?: number, error?: string) => {
-      sendDownloadProgress(tabId, downloadId, progress, error);
-    };
-
-    await downloadTrack(track, undefined, undefined, reportTrackProgress);
+    logger.logError("Failed init initialize download", error);
   }
 });
 

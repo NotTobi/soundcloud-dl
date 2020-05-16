@@ -13,21 +13,44 @@ const logger = Logger.create("SoundCloud-Downloader");
 const downloadButtons: KeyedButtons = {};
 
 const handleMessageFromBackgroundScript = async (_, message: any) => {
-  console.log("Progress of " + message.downloadId, message.progress);
+  const { downloadId, progress, error } = message;
+
+  const downloadButton = downloadButtons[downloadId];
+
+  if (!downloadButton) return;
+
+  if (progress === 100) {
+    downloadButton.title = downloadButton.innerText = "Download";
+    downloadButton.style.background = "";
+  } else if (progress) {
+    downloadButton.title = downloadButton.innerText = "Downloading...";
+    downloadButton.style.background = `linear-gradient(90deg, #ff5419 ${progress}%, transparent 0%)`;
+  }
+
+  if (error) {
+    downloadButton.style.backgroundColor = "#ff1744";
+    downloadButton.title = error;
+    downloadButton.innerText = "ERROR";
+  }
+
+  if (error || progress === 100) {
+    delete downloadButtons[downloadId];
+  }
 };
 
 onMessage(handleMessageFromBackgroundScript);
 
-const createDownloadButton = () => {
+const createDownloadButton = (small?: boolean) => {
   const button = document.createElement("button");
-  button.className = "sc-button sc-button-download sc-button-medium sc-button-responsive";
-  button.title = "Download";
-  button.innerText = "Download";
+  const buttonSizeClass = small ? "sc-button-small" : "sc-button-medium";
+
+  button.className = `sc-button-download sc-button ${buttonSizeClass} sc-button-responsive`;
+  button.title = button.innerText = "Download";
 
   return button;
 };
 
-const addDownloadButtonToParent = (parent: Node & ParentNode, onClicked: OnButtonClicked) => {
+const addDownloadButtonToParent = (parent: Node & ParentNode, onClicked: OnButtonClicked, small?: boolean) => {
   const downloadButtonExists = parent.querySelector("button.sc-button-download") !== null;
 
   if (downloadButtonExists) {
@@ -36,11 +59,8 @@ const addDownloadButtonToParent = (parent: Node & ParentNode, onClicked: OnButto
     return;
   }
 
-  const button = createDownloadButton();
+  const button = createDownloadButton(small);
   button.onclick = async () => {
-    button.disabled = true;
-    button.title = button.innerText = "Downloading...";
-
     const downloadId = uuid();
 
     downloadButtons[downloadId] = button;
@@ -130,7 +150,7 @@ const addDownloadButtonToFeed = () => {
 
     const downloadCommand = createDownloadCommand(downloadUrl);
 
-    addDownloadButtonToParent(node.parentNode, downloadCommand);
+    addDownloadButtonToParent(node.parentNode, downloadCommand, true);
   };
 
   document.querySelectorAll(selector).forEach(addDownloadButtonToPossiblePlaylist);
@@ -143,6 +163,7 @@ const addDownloadButtonToFeed = () => {
   observer?.addEvent(event);
 };
 
+// todo: a track is only shown once, if it has been reposted by somebody else!
 const removeReposts = () => {
   const selector = ".soundContext__repost";
 

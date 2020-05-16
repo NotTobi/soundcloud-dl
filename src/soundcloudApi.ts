@@ -181,7 +181,9 @@ export class SoundCloudApi {
             req.open("GET", url, true);
             req.send(null);
           } catch (error) {
-            console.log("fetch err", { error });
+            this.logger.logError(`Failed to fetch ArrayBuffer with progress from: ${url}`, error);
+
+            reject(error);
           }
         });
       }
