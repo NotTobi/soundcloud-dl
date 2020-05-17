@@ -20,9 +20,9 @@ What can be configured?
 
 ## Known issues
 
-Changing the user OAuth token, after the user logged in/out can sometimes not work correctly.
-
-Therefor it is a good idea to refresh the page, after you've logged in/out!
+1. Tracks that only have HLS streams can currently not be downloaded
+2. Changing the user OAuth token, after the user logged in/out can sometimes require a page refresh
+3. The normalization of some track names can fail and produce wrong results
 
 ## Missing features
 
