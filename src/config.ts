@@ -91,9 +91,23 @@ export async function loadConfigValue<TKey extends keyof Config>(key: TKey): Pro
   return result[key] ?? config[key].defaultValue;
 }
 
+async function loadConfigValues<TKey extends keyof Config>(keys: TKey[]) {
+  if (!keys.every(isConfigKey)) return Promise.reject("Invalid config keys");
+
+  const syncKeys = keys.filter((key) => config[key].sync === true);
+  const localKeys = keys.filter((key) => !config[key].sync);
+
+  return {
+    ...(await getSyncStorage(syncKeys)),
+    ...(await getLocalStorage(localKeys)),
+  };
+}
+
 export async function loadConfiguration(monitorStorage: boolean = false) {
+  const values = await loadConfigValues(configKeys);
+
   for (const key of configKeys) {
-    config[key].value = await loadConfigValue(key);
+    config[key].value = values[key];
   }
 
   if (monitorStorage && !isStorageMonitored) {

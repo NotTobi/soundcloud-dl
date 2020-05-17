@@ -202,26 +202,41 @@ const addDownloadButtonToFeed = () => {
 };
 
 const handleBlockRepostsConfigChange = (blockReposts: boolean) => {
+  let script = document.querySelector<HTMLScriptElement>("#repost-blocker");
+
   if (blockReposts) {
-    logger.logInfo("Start blocking reposts");
+    if (script) {
+      logger.logWarn("Repost-Blocker script has already been injected!");
+
+      return;
+    }
 
     const payloadFile = getPathFromExtensionFile("/js/repostBlocker.js");
 
     if (!payloadFile) return;
 
-    const script = document.createElement("script");
+    logger.logInfo("Start blocking reposts");
+
+    script = document.createElement("script");
+    script.type = "text/javascript";
     script.id = "repost-blocker";
     script.src = payloadFile;
 
     document.documentElement.appendChild(script);
   } else {
-    logger.logInfo("Stop blocking reposts");
-
-    const script = document.getElementById("repost-blocker");
-
     if (!script) return;
 
+    logger.logInfo("Stop blocking reposts");
+
+    const cleanupScript = document.createElement("script");
+    cleanupScript.type = "text/javascript";
+    cleanupScript.id = "cleanup-repost-blocker";
+    cleanupScript.innerText = "XMLHttpRequest.prototype.resetSend();";
+
+    document.documentElement.appendChild(cleanupScript);
+
     document.documentElement.removeChild(script);
+    document.documentElement.removeChild(cleanupScript);
   }
 };
 
@@ -255,7 +270,7 @@ window.onbeforeunload = () => {
 };
 
 loadConfiguration(true).then(() => {
-  registerConfigChangeHandler("block-reposts", handleBlockRepostsConfigChange);
-
   if (getConfigValue("block-reposts")) handleBlockRepostsConfigChange(true);
+
+  registerConfigChangeHandler("block-reposts", handleBlockRepostsConfigChange);
 });

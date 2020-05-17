@@ -56,3 +56,7 @@ function hijackedSendMethod(body: any) {
 }
 
 XMLHttpRequest.prototype.send = hijackedSendMethod;
+
+Object.defineProperty(XMLHttpRequest.prototype, "resetSend", {
+  value: () => (XMLHttpRequest.prototype.send = originalSendMethod),
+});
