@@ -1,3 +1,7 @@
+## 1.6.3
+
+- Correctly clean up repost blocker after removal
+
 ## 1.6.2
 
 - Minor bug fixes / improvements
