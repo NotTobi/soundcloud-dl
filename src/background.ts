@@ -25,7 +25,7 @@ logger.logInfo("Starting with version: " + manifest.version);
 loadConfiguration(true);
 
 function sanitizeFileName(input: string) {
-  return input.replace(/[\*\\:?"'<>~|]+/, "").replace(/\s{2,}/, " ");
+  return input.replace(/[\*\\\/:?"'<>~|]+/, "").replace(/\s{2,}/, " ");
 }
 
 interface DownloadData {
