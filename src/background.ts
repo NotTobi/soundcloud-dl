@@ -45,12 +45,10 @@ async function handleDownload(
   albumName: string | undefined,
   reportProgress: (progress?: number, error?: string) => void
 ) {
-  let normalizeTrack = getConfigValue("normalize-track");
-
   let artistsString = data.username;
   let titleString = data.title;
 
-  if (normalizeTrack) {
+  if (getConfigValue("normalize-track")) {
     const extractor = new MetadataExtractor(data.title, data.username);
 
     let artists = extractor.getArtists();
@@ -165,11 +163,11 @@ async function handleDownload(
   const defaultDownloadLocation = getConfigValue("default-download-location");
   let downloadFilename = rawFilename + "." + data.fileExtension;
 
+  downloadFilename = sanitizeFileName(downloadFilename);
+
   if (!saveAs && defaultDownloadLocation) {
     downloadFilename = defaultDownloadLocation.replace(/^\/+/g, "") + "/" + downloadFilename;
   }
-
-  downloadFilename = sanitizeFileName(downloadFilename);
 
   try {
     await downloadToFile(downloadUrl, downloadFilename, saveAs);
@@ -284,16 +282,20 @@ onBeforeRequest(
   ["blocking"]
 );
 
+function isValidTrack(track: Track) {
+  return track && track.kind === "track" && track.state === "finished" && (track.streamable || track.downloadable);
+}
+
 async function downloadTrack(
   track: Track,
   trackNumber: number | undefined,
   albumName: string | undefined,
   reportProgress: (progress?: number, error?: string) => void
 ) {
-  if (!track || track.kind !== "track" || track.state !== "finished" || !track.streamable) {
-    logger.logError("Track is not streamable", track);
+  if (!isValidTrack(track)) {
+    logger.logError("Track does not satisfy constraints needed to be downloadable", track);
 
-    reportProgress(undefined, "Track is not streamable");
+    reportProgress(undefined, "Track does not satisfy constraints needed to be downloadable");
 
     return;
   }
@@ -404,9 +406,11 @@ onMessage(async (sender, message: DownloadRequest) => {
         sendDownloadProgress(tabId, downloadId, totalProgress / trackIds.length, error);
       };
 
+      const treatAsAlbum = isAlbum && tracks.length > 1;
+
       for (let i = 0; i < tracks.length; i++) {
-        const trackNumber = isAlbum ? i + 1 : undefined;
-        const albumName = isAlbum ? set.title : undefined;
+        const trackNumber = treatAsAlbum ? i + 1 : undefined;
+        const albumName = treatAsAlbum ? set.title : undefined;
 
         const download = downloadTrack(tracks[i], trackNumber, albumName, reportPlaylistProgress(tracks[i].id));
 
