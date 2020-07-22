@@ -4,8 +4,6 @@
 
 ## [Donations](https://www.paypal.me/nottobii)
 
-## Important Notice: I will no longer be able to maintain this project up until August of 2020.
-
 ## Configuration
 
 If you're on soundcloud.com, there should be an icon of this extension next to the addressbar.
