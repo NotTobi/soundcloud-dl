@@ -33,6 +33,7 @@
   "dependencies": {
     "browser-id3-writer": "^4.4.0",
     "escape-string-regexp": "^3.0.0",
+    "m3u8-parser": "^4.4.0",
     "uuid": "^8.0.0"
   }
 }

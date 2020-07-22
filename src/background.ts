@@ -1,4 +1,4 @@
-import { SoundCloudApi, Track } from "./soundcloudApi";
+import { SoundCloudApi, StreamDetails, Track } from "./soundcloudApi";
 import { Logger } from "./logger";
 import {
   onBeforeSendHeaders,
@@ -15,6 +15,7 @@ import { Mp3TagWriter } from "./mp3TagWriter";
 import { loadConfiguration, storeConfigValue, getConfigValue, registerConfigChangeHandler } from "./config";
 import { TagWriter } from "./tagWriter";
 import { Mp4TagWriter } from "./mp4TagWriter";
+import { Parser } from "m3u8-parser";
 
 const soundcloudApi = new SoundCloudApi();
 const logger = Logger.create("Background");
@@ -37,14 +38,27 @@ interface DownloadData {
   artworkUrl: string;
   streamUrl: string;
   fileExtension?: string;
+  trackNumber: number | undefined;
+  albumName: string | undefined;
+  hls: boolean;
 }
 
-async function handleDownload(
-  data: DownloadData,
-  trackNumber: number | undefined,
-  albumName: string | undefined,
-  reportProgress: (progress?: number, error?: string) => void
-) {
+function concatArrayBuffers(buffers: ArrayBuffer[]) {
+  const totalLength = buffers.reduce((acc, cur) => acc + cur.byteLength, 0);
+
+  const mergedBuffer = new Uint8Array(totalLength);
+
+  let bufferOffset = 0;
+  for (const buffer of buffers) {
+    mergedBuffer.set(new Uint8Array(buffer), bufferOffset);
+
+    bufferOffset += buffer.byteLength;
+  }
+
+  return mergedBuffer;
+}
+
+async function handleDownload(data: DownloadData, reportProgress: (progress?: number, error?: string) => void) {
   let artistsString = data.username;
   let titleString = data.title;
 
@@ -78,7 +92,44 @@ async function handleDownload(
 
   logger.logInfo(`Starting download of '${rawFilename}'...`);
 
-  const [streamBuffer, streamHeaders] = await soundcloudApi.downloadStream(data.streamUrl, reportProgress);
+  let streamBuffer: ArrayBuffer;
+  let streamHeaders: Headers;
+
+  // todo: error handling
+  if (data.hls) {
+    try {
+      const playlistReq = await fetch(data.streamUrl);
+      const playlist = await playlistReq.text();
+
+      // @ts-ignore
+      const parser = new Parser();
+
+      parser.push(playlist);
+      parser.end();
+
+      const segmentUrls: string[] = parser.manifest.segments.map((i) => i.uri);
+      const segments: ArrayBuffer[] = [];
+
+      for (let i = 0; i < segmentUrls.length; i++) {
+        const segmentReq = await fetch(segmentUrls[i]);
+        const segment = await segmentReq.arrayBuffer();
+
+        segments.push(segment);
+
+        const progress = Math.round((i / segmentUrls.length) * 100);
+
+        reportProgress(progress);
+      }
+
+      reportProgress(100);
+
+      streamBuffer = concatArrayBuffers(segments);
+    } catch (error) {
+      console.error("Failed to download m3u8 playlist", error);
+    }
+  } else {
+    [streamBuffer, streamHeaders] = await soundcloudApi.downloadStream(data.streamUrl, reportProgress);
+  }
 
   if (!streamBuffer) {
     logger.logError("Failed to download stream");
@@ -89,7 +140,7 @@ async function handleDownload(
   }
 
   let contentType;
-  if (!data.fileExtension) {
+  if (!data.fileExtension && streamHeaders) {
     contentType = streamHeaders.get("content-type");
     let extension = "mp3";
 
@@ -117,13 +168,14 @@ async function handleDownload(
 
   if (writer) {
     writer.setTitle(titleString);
-    writer.setAlbum(albumName ?? titleString);
+    // todo: sanitize album as well
+    writer.setAlbum(data.albumName ?? titleString);
     writer.setArtists([artistsString]);
 
     writer.setComment("https://github.com/NotTobi/soundcloud-dl");
 
-    if (trackNumber > 0) {
-      writer.setTrackNumber(trackNumber);
+    if (data.trackNumber > 0) {
+      writer.setTrackNumber(data.trackNumber);
     }
 
     const releaseYear = data.date.getFullYear();
@@ -182,29 +234,56 @@ async function handleDownload(
   }
 }
 
-function getProgressiveStreamUrl(details: Track): string | null {
-  if (!details || !details.media || !details.media.transcodings || details.media.transcodings.length < 1) return null;
+interface TranscodingDetails {
+  url: string;
+  protocol: string;
+}
 
-  const progressiveStreams = details.media.transcodings.filter(
-    (i) => i.format?.protocol === "progressive" && !i.snipped
+function getTranscodingDetails(details: Track): TranscodingDetails | null {
+  if (details?.media?.transcodings?.length < 1) return null;
+
+  const mpegStreams = details.media.transcodings.filter(
+    (i) =>
+      (i.format?.protocol === "progressive" || i.format?.protocol === "hls") &&
+      i.format?.mime_type === "audio/mpeg" &&
+      !i.snipped
   );
 
-  if (progressiveStreams.length < 1) {
-    logger.logError("No progressive streams found!");
+  if (mpegStreams.length < 1) {
+    logger.logError("No streams could be found found!");
 
     return null;
   }
 
-  const hqStreams = progressiveStreams.filter((i) => i.quality === "hq");
-  const nonHqStreams = progressiveStreams.filter((i) => i.quality !== "hq");
+  // prefer 'progressive' streams
+  const sortedStreams = mpegStreams.sort((a, b) => {
+    if (a.format.protocol === "progressive" && b.format.protocol === "hls") {
+      return -1;
+    } else if (a.format.protocol === "hls" && b.format.protocol === "progressive") {
+      return 1;
+    }
+
+    return 0;
+  });
+
+  console.log({ sortedStreams });
+
+  const hqStreams = sortedStreams.filter((i) => i.quality === "hq");
+  const nonHqStreams = sortedStreams.filter((i) => i.quality !== "hq");
 
   if (getConfigValue("download-hq-version") && hqStreams.length > 0) {
     logger.logInfo("Using High Quality Stream!");
 
-    return hqStreams[0].url;
+    return {
+      url: hqStreams[0].url,
+      protocol: hqStreams[0].format.protocol,
+    };
   }
 
-  return nonHqStreams[0].url;
+  return {
+    url: nonHqStreams[0].url,
+    protocol: nonHqStreams[0].format.protocol,
+  };
 }
 
 // -------------------- HANDLERS --------------------
@@ -300,29 +379,30 @@ async function downloadTrack(
     return;
   }
 
-  let stream: { url: string; extension?: string };
+  let stream: StreamDetails;
   if (getConfigValue("download-original-version") && track.downloadable && track.has_downloads_left) {
     const originalDownloadUrl = await soundcloudApi.getOriginalDownloadUrl(track.id);
 
     if (originalDownloadUrl) {
       stream = {
         url: originalDownloadUrl,
+        hls: false,
       };
     }
   }
 
   if (!stream) {
-    const progressiveStreamUrl = getProgressiveStreamUrl(track);
+    const streamDetails = getTranscodingDetails(track);
 
-    if (!progressiveStreamUrl) {
-      logger.logError("Progressive stream URL could not be determined", track);
+    if (!streamDetails) {
+      logger.logError("Stream details could not be determined", track);
 
-      reportProgress(undefined, "Progressive stream URL could not be determined");
+      reportProgress(undefined, "Stream details could not be determined");
 
       return;
     }
 
-    stream = await soundcloudApi.getStreamDetails(progressiveStreamUrl);
+    stream = await soundcloudApi.getStreamDetails(streamDetails.url);
   }
 
   if (!stream) {
@@ -342,9 +422,12 @@ async function downloadTrack(
     username: track.user.username,
     artworkUrl: track.artwork_url,
     avatarUrl: track.user.avatar_url,
+    trackNumber,
+    albumName,
+    hls: stream.hls,
   };
 
-  await handleDownload(downloadData, trackNumber, albumName, reportProgress);
+  await handleDownload(downloadData, reportProgress);
 }
 
 interface Playlist {

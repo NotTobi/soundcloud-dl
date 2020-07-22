@@ -1,7 +1,8 @@
 import { Logger } from "./logger";
 
 interface MediaTranscodingFormat {
-  protocol: string;
+  protocol: "progressive" | "hls";
+  mime_type: string;
 }
 
 interface MediaTranscoding {
@@ -36,13 +37,14 @@ export interface Track {
   media: Media;
 }
 
-interface ProgressiveStream {
+interface Stream {
   url: string;
 }
 
-interface StreamDetails {
+export interface StreamDetails {
   url: string;
-  extension: string;
+  extension?: string;
+  hls: boolean;
 }
 
 interface OriginalDownload {
@@ -96,10 +98,8 @@ export class SoundCloudApi {
     }, {});
   }
 
-  async getStreamDetails(progressiveStreamUrl: string): Promise<StreamDetails> {
-    const url = `${progressiveStreamUrl}`;
-
-    const stream = await this.fetchJson<ProgressiveStream>(url);
+  async getStreamDetails(url: string): Promise<StreamDetails> {
+    const stream = await this.fetchJson<Stream>(url);
 
     if (!stream || !stream.url) {
       this.logger.logError("Invalid stream response", stream);
@@ -107,16 +107,20 @@ export class SoundCloudApi {
       return null;
     }
 
-    let extension = "mp3";
-    const regexResult = /\.(\w{3,4})(?:$|\?)/.exec(stream.url);
+    let extension;
+    let hls = false;
+    const regexResult = /(?:(\w{3,4})\/playlist)?\.(\w{3,4})(?:$|\?)/.exec(stream.url);
 
-    if (regexResult.length === 2) {
+    if (regexResult.length >= 2) {
       extension = regexResult[1];
+
+      if (regexResult[2] === "m3u8") hls = true;
     }
 
     return {
       url: stream.url,
       extension,
+      hls,
     };
   }
 
