@@ -245,7 +245,7 @@ function getTranscodingDetails(details: Track): TranscodingDetails | null {
   const mpegStreams = details.media.transcodings.filter(
     (i) =>
       (i.format?.protocol === "progressive" || i.format?.protocol === "hls") &&
-      i.format?.mime_type === "audio/mpeg" &&
+      (i.format?.mime_type?.startsWith("audio/mpeg") || i.format?.mime_type?.startsWith("audio/mp4")) &&
       !i.snipped
   );
 
@@ -265,8 +265,6 @@ function getTranscodingDetails(details: Track): TranscodingDetails | null {
 
     return 0;
   });
-
-  console.log({ sortedStreams });
 
   const hqStreams = sortedStreams.filter((i) => i.quality === "hq");
   const nonHqStreams = sortedStreams.filter((i) => i.quality !== "hq");
