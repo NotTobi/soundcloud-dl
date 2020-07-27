@@ -1,3 +1,11 @@
+## 1.7.1
+
+- Fix download of high quality tracks
+
+## 1.7.0
+
+- Support HLS streams
+
 ## 1.6.3
 
 - Correctly clean up repost blocker after removal
