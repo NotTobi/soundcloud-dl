@@ -33,7 +33,7 @@ class Mp4 {
   }
 
   parse() {
-    if (this._buffer === null) throw new Error("Buffer can not be null");
+    if (!this._buffer) throw new Error("Buffer can not be null");
     if (this._atoms.length > 0) throw new Error("Buffer already parsed");
 
     let offset = 0;
@@ -55,7 +55,7 @@ class Mp4 {
   setDuration(duration: number) {
     const mvhdAtom: Atom = this._findAtom(this._atoms, ["moov", "mvhd"]);
 
-    if (mvhdAtom === null) throw new Error("'mvhd' atom could not be found");
+    if (!mvhdAtom) throw new Error("'mvhd' atom could not be found");
 
     // version(4) + created(4) + modified(4) + timescale(4)
     const precedingDataLength = 16;
@@ -182,7 +182,7 @@ class Mp4 {
 
     const parentAtom = this._findAtom(this._atoms, path);
 
-    if (parentAtom === null) throw new Error(`Parent atom at path '${path.join(" > ")}' could not be found`);
+    if (!parentAtom) throw new Error(`Parent atom at path '${path.join(" > ")}' could not be found`);
 
     if (parentAtom.children === undefined) {
       parentAtom.children = this._readChildAtoms(parentAtom);
@@ -215,6 +215,8 @@ class Mp4 {
     const curElem = atoms.find((i) => i.name === curName);
 
     if (curPath.length < 1) return curElem;
+
+    if (!curElem) return null;
 
     if (curElem.children === undefined) {
       curElem.children = this._readChildAtoms(curElem);

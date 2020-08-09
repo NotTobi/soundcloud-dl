@@ -35,7 +35,7 @@ const handleMessageFromBackgroundScript = async (_, message: any) => {
 
   if (!downloadButton) return;
 
-  if (progress === 100) {
+  if (progress === 101) {
     resetButtonBackground(downloadButton);
 
     downloadButton.style.backgroundColor = "#19a352";
@@ -52,6 +52,10 @@ const handleMessageFromBackgroundScript = async (_, message: any) => {
 
       delete downloadButtons[downloadId];
     }, 2000);
+  } else if (progress === 100) {
+    setButtonText(downloadButton, "Finishing...");
+
+    downloadButton.style.background = `linear-gradient(90deg, #ff5419 ${progress}%, transparent 0%)`;
   } else if (progress) {
     setButtonText(downloadButton, "Downloading...");
 
