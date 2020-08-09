@@ -16,6 +16,7 @@ import { loadConfiguration, storeConfigValue, getConfigValue, registerConfigChan
 import { TagWriter } from "./tagWriter";
 import { Mp4TagWriter } from "./mp4TagWriter";
 import { Parser } from "m3u8-parser";
+import sanitizeFilename from "sanitize-filename";
 
 const soundcloudApi = new SoundCloudApi();
 const logger = Logger.create("Background");
@@ -25,14 +26,10 @@ logger.logInfo("Starting with version: " + manifest.version);
 
 loadConfiguration(true);
 
-function sanitizeFileName(input: string) {
-  return input.replace(/[\*\\\/:?"'<>~|]+/, "").replace(/\s{2,}/, " ");
-}
-
 interface DownloadData {
   title: string;
   duration: number;
-  date: Date;
+  uploadDate: Date;
   username: string;
   avatarUrl: string;
   artworkUrl: string;
@@ -56,6 +53,17 @@ function concatArrayBuffers(buffers: ArrayBuffer[]) {
   }
 
   return mergedBuffer;
+}
+
+function sanitize(
+  input: string,
+  options?: {
+    replacement?: string | ((substring: string) => string);
+  }
+) {
+  const sanitized = sanitizeFilename(input, options);
+
+  return sanitized.replace(/\s{2,}/, " ");
 }
 
 async function handleDownload(data: DownloadData, reportProgress: (progress?: number, error?: string) => void) {
@@ -178,7 +186,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       writer.setTrackNumber(data.trackNumber);
     }
 
-    const releaseYear = data.date.getFullYear();
+    const releaseYear = data.uploadDate.getFullYear();
 
     writer.setYear(releaseYear);
 
@@ -215,11 +223,13 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
   const defaultDownloadLocation = getConfigValue("default-download-location");
   let downloadFilename = rawFilename + "." + data.fileExtension;
 
-  downloadFilename = sanitizeFileName(downloadFilename);
+  downloadFilename = sanitize(downloadFilename);
 
   if (!saveAs && defaultDownloadLocation) {
-    downloadFilename = defaultDownloadLocation.replace(/^\/+/g, "") + "/" + downloadFilename;
+    downloadFilename = defaultDownloadLocation + "/" + downloadFilename;
   }
+
+  logger.logInfo(`Downloading tack as \"${downloadFilename}\"`);
 
   try {
     await downloadToFile(downloadUrl, downloadFilename, saveAs);
@@ -413,7 +423,7 @@ async function downloadTrack(
 
   const downloadData: DownloadData = {
     duration: track.duration,
-    date: new Date(track.display_date),
+    uploadDate: new Date(track.display_date),
     streamUrl: stream.url,
     fileExtension: stream.extension,
     title: track.title,

@@ -7,6 +7,7 @@ import {
   getLocalStorage,
   setLocalStorage,
 } from "./compatibilityStubs";
+import sanitizeFilename from "sanitize-filename";
 
 const logger = Logger.create("Config");
 let isStorageMonitored = false;
@@ -15,7 +16,8 @@ interface ConfigValue<T> {
   value?: T;
   defaultValue?: T;
   sync?: boolean;
-  onChanged?: (value?: T) => void;
+  onChanged?: (value: T) => void;
+  sanitize?: (value: T) => T;
 }
 
 interface Config {
@@ -38,7 +40,7 @@ const config: Config = {
   "oauth-token": { defaultValue: undefined },
   "client-id": { defaultValue: undefined },
   "user-id": { defaultValue: undefined },
-  "default-download-location": { defaultValue: "SoundCloud" },
+  "default-download-location": { defaultValue: "SoundCloud", sanitize: (value) => sanitizeFilename(value) },
   "download-without-prompt": { defaultValue: true },
   "normalize-track": { sync: true, defaultValue: true },
   "block-reposts": { sync: true, defaultValue: false },
@@ -57,6 +59,10 @@ export async function storeConfigValue<TKey extends keyof Config>(key: TKey, val
   if (config[key].value === value) return Promise.resolve();
 
   const sync = config[key].sync === true;
+
+  if (config[key].sanitize) {
+    value = config[key].sanitize(value as never);
+  }
 
   logger.logInfo("Setting", key, "to", value);
 

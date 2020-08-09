@@ -30,6 +30,8 @@ async function saveSettings(e) {
 
     await storeConfigValue(configKey, value);
   }
+
+  await restoreSettings();
 }
 
 async function restoreSettings() {

@@ -112,9 +112,12 @@ export class SoundCloudApi {
     const regexResult = /(?:(\w{3,4})\/playlist)?\.(\w{3,4})(?:$|\?)/.exec(stream.url);
 
     if (regexResult.length >= 2) {
-      extension = regexResult[1];
-
-      if (regexResult[2] === "m3u8") hls = true;
+      if (regexResult[2] === "m3u8") {
+        extension = regexResult[1];
+        hls = true;
+      } else {
+        extension = regexResult[2];
+      }
     }
 
     return {
