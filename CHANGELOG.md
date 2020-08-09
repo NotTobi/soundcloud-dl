@@ -1,3 +1,7 @@
+## 1.7.3
+
+- Better error handling
+
 ## 1.7.2
 
 - Correctly escape file names
