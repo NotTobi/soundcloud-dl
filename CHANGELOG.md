@@ -1,3 +1,7 @@
+## 1.7.2
+
+- Correctly escape file names
+
 ## 1.7.1
 
 - Fix download of high quality tracks
