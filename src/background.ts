@@ -312,6 +312,8 @@ function getTranscodingDetails(details: Track): TranscodingDetails | null {
 }
 
 // -------------------- HANDLERS --------------------
+const authRegex = new RegExp("OAuth (.+)");
+const followerIdRegex = new RegExp("/me/followings/(\\d+)");
 
 onBeforeSendHeaders(
   (details) => {
@@ -324,7 +326,6 @@ onBeforeSendHeaders(
         requestHasAuth = true;
         const authHeader = details.requestHeaders[i].value;
 
-        const authRegex = new RegExp("OAuth (.+)");
         const result = authRegex.exec(authHeader);
 
         if (!result || result.length < 2) continue;
@@ -365,7 +366,26 @@ onBeforeRequest(
 
       storeConfigValue("oauth-token", null);
       storeConfigValue("user-id", null);
+      storeConfigValue("client-id", null);
       storeConfigValue("followed-artists", []);
+    } else if (url.pathname.startsWith("/me/followings/")) {
+      const followerIdMatch = followerIdRegex.exec(url.pathname);
+
+      if (followerIdMatch.length === 2) {
+        const followerId = +followerIdMatch[1];
+
+        if (!!followerId) {
+          let followedArtists = getConfigValue("followed-artists");
+
+          if (details.method === "POST") {
+            followedArtists = [...followedArtists, followerId];
+          } else if (details.method === "DELETE") {
+            followedArtists = followedArtists.filter((i) => i !== followerId);
+          }
+
+          storeConfigValue("followed-artists", followedArtists);
+        }
+      }
     } else {
       const clientId = url.searchParams.get("client_id");
 

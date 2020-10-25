@@ -179,7 +179,7 @@ const handleStorageChanged = (changes: { [key: string]: StorageChange }, areanam
 };
 
 function getDisplayValue<T>(value: T, entry: ConfigValue<T>): T | string {
-  if (entry.secret) return "***CONFIDENTIAL***";
+  if (entry.secret && value) return "***CONFIDENTIAL***";
 
   return value;
 }
