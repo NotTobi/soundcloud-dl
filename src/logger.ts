@@ -12,8 +12,8 @@ export class Logger {
   log(logLevel: LogLevel, message: string, ...args: any[]): void {
     if (logLevel < this.minLogLevel) return;
 
-    const timestamp = `[${new Date().toISOString()}]`;
-    const source = `[${this.source}]`;
+    const timestamp = `[${new Date().toJSON()}]`;
+    const source = `[SOUNDCLOUD-DL:${this.source}]`;
 
     switch (logLevel) {
       case LogLevel.Error:

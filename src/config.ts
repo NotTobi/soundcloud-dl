@@ -15,6 +15,7 @@ let isStorageMonitored = false;
 interface ConfigValue<T> {
   value?: T;
   defaultValue?: T;
+  secret?: boolean;
   sync?: boolean;
   onChanged?: (value: T) => void;
   sanitize?: (value: T) => T;
@@ -37,9 +38,9 @@ interface Config {
 const config: Config = {
   "download-hq-version": { sync: true, defaultValue: true },
   "download-original-version": { sync: true, defaultValue: false },
-  "oauth-token": { defaultValue: undefined },
-  "client-id": { defaultValue: undefined },
-  "user-id": { defaultValue: undefined },
+  "oauth-token": { secret: true },
+  "client-id": { secret: true },
+  "user-id": { secret: true },
   "default-download-location": { defaultValue: "SoundCloud", sanitize: (value) => sanitizeFilename(value) },
   "download-without-prompt": { defaultValue: true },
   "normalize-track": { sync: true, defaultValue: true },
@@ -56,17 +57,20 @@ function isConfigKey(key: string): key is keyof Config {
 
 export async function storeConfigValue<TKey extends keyof Config>(key: TKey, value: Config[TKey]["value"]) {
   if (!isConfigKey(key)) return Promise.reject(`Invalid config key: ${key}`);
-  if (config[key].value === value) return Promise.resolve();
 
-  const sync = config[key].sync === true;
+  const entry = config[key];
 
-  if (config[key].sanitize) {
-    value = config[key].sanitize(value as never);
+  if (entry.value === value) return Promise.resolve();
+
+  const sync = entry.sync === true;
+
+  if (entry.sanitize) {
+    value = entry.sanitize(value as never);
   }
 
-  logger.logInfo("Setting", key, "to", value);
+  logger.logInfo("Setting", key, "to", getDisplayValue(value, entry));
 
-  config[key].value = value;
+  entry.value = value;
 
   try {
     if (sync) {
@@ -75,7 +79,7 @@ export async function storeConfigValue<TKey extends keyof Config>(key: TKey, val
       await setLocalStorage({ [key]: value });
     }
 
-    if (config[key].onChanged) config[key].onChanged(value as never);
+    if (entry.onChanged) entry.onChanged(value as never);
   } catch (error) {
     const reason = "Failed to store configuration value";
 
@@ -88,13 +92,15 @@ export async function storeConfigValue<TKey extends keyof Config>(key: TKey, val
 export async function loadConfigValue<TKey extends keyof Config>(key: TKey): Promise<Config[TKey]["value"]> {
   if (!isConfigKey(key)) return Promise.reject(`Invalid config key: ${key}`);
 
-  const sync = config[key].sync === true;
+  const entry = config[key];
+
+  const sync = entry.sync === true;
 
   let result;
   if (sync) result = await getSyncStorage(key);
   else result = await getLocalStorage(key);
 
-  return result[key] ?? config[key].defaultValue;
+  return result[key] ?? entry.defaultValue;
 }
 
 async function loadConfigValues<TKey extends keyof Config>(keys: TKey[]) {
@@ -142,16 +148,26 @@ export function registerConfigChangeHandler<TKey extends keyof Config>(
   config[key].onChanged = callback;
 }
 
-const handleStorageChanged = (changes: { [key: string]: StorageChange }) => {
+const handleStorageChanged = (changes: { [key: string]: StorageChange }, areaname: string) => {
   for (const key in changes) {
     const { newValue } = changes[key];
 
-    if (!isConfigKey(key) || config[key].value === newValue) continue;
+    if (!isConfigKey(key)) continue;
 
-    logger.logInfo("Updating", key, "to", newValue);
+    const entry = config[key];
 
-    config[key].value = newValue;
+    if (entry.value === newValue) continue;
 
-    if (config[key].onChanged) config[key].onChanged(newValue as never);
+    if (areaname !== "local") logger.logInfo("Updating", key, "to", getDisplayValue(newValue, entry));
+
+    entry.value = newValue;
+
+    if (entry.onChanged) entry.onChanged(newValue as never);
   }
 };
+
+function getDisplayValue<T>(value: T, entry: ConfigValue<T>): T | string {
+  if (entry.secret) return "***CONFIDENTIAL***";
+
+  return value;
+}
