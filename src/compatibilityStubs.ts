@@ -74,7 +74,11 @@ export const downloadToFile = (url: string, filename: string, saveAs: boolean) =
 
       browser.downloads.onChanged.addListener(onChangedHandler);
 
-      downloadId = await browser.downloads.download(downloadOptions);
+      try {
+        downloadId = await browser.downloads.download(downloadOptions);
+      } catch {
+        reject();
+      }
     } else if (typeof chrome !== "undefined") {
       const onChangedHandler = (delta: { id: number; state?: { current?: string } }) => {
         if (delta.id === downloadId) {
