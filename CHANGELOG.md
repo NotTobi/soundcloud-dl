@@ -1,3 +1,8 @@
+## 1.8.0
+
+- Ability to block playlists in streams
+- Fix newly released reposted tracks not showing up, with repost blocker enabled
+
 ## 1.7.3
 
 - Better error handling
