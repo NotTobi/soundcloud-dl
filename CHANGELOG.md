@@ -1,3 +1,7 @@
+## 1.8.1
+
+- Update followers for repost filtering
+
 ## 1.8.0
 
 - Ability to block playlists in streams
