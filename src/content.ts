@@ -1,7 +1,7 @@
 import { DomObserver, ObserverEvent } from "./domObserver";
 import { Logger } from "./logger";
 import { sendMessageToBackend, onMessage, getPathFromExtensionFile } from "./compatibilityStubs";
-import { registerConfigChangeHandler, loadConfiguration, getConfigValue } from "./config";
+import { registerConfigChangeHandler, loadConfiguration, setOnConfigValueChanged, configKeys } from "./config";
 import { v4 as uuid } from "uuid";
 
 interface DownloadButton {
@@ -273,8 +273,22 @@ window.onbeforeunload = () => {
   logger.logDebug("Unattached!");
 };
 
-loadConfiguration(true).then(() => {
-  if (getConfigValue("block-reposts")) handleBlockRepostsConfigChange(true);
+function writeConfigValueToLocalStorage(key: string, value: any) {
+  const item = JSON.stringify(value);
+
+  window.localStorage.setItem("SOUNDCLOUD-DL-" + key, item);
+}
+
+loadConfiguration(true).then((config) => {
+  for (const key of configKeys) {
+    if (config[key].secret) continue;
+
+    writeConfigValueToLocalStorage(key, config[key].value);
+  }
+
+  setOnConfigValueChanged(writeConfigValueToLocalStorage);
+
+  if (config["block-reposts"].value) handleBlockRepostsConfigChange(true);
 
   registerConfigChangeHandler("block-reposts", handleBlockRepostsConfigChange);
 });

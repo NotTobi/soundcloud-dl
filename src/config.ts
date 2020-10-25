@@ -21,7 +21,7 @@ interface ConfigValue<T> {
   sanitize?: (value: T) => T;
 }
 
-interface Config {
+export interface Config {
   "download-hq-version": ConfigValue<boolean>;
   "download-original-version": ConfigValue<boolean>;
   "oauth-token": ConfigValue<string>;
@@ -31,8 +31,17 @@ interface Config {
   "download-without-prompt": ConfigValue<boolean>;
   "normalize-track": ConfigValue<boolean>;
   "block-reposts": ConfigValue<boolean>;
+  "block-playlists": ConfigValue<boolean>;
   "include-producers": ConfigValue<boolean>;
   "followed-artists": ConfigValue<number[]>;
+}
+
+type OnConfigValueChangedType = (key: keyof Config, value: any) => void;
+
+let onConfigValueChanged: OnConfigValueChangedType;
+
+export function setOnConfigValueChanged(callback: OnConfigValueChangedType) {
+  onConfigValueChanged = callback;
 }
 
 const config: Config = {
@@ -45,6 +54,7 @@ const config: Config = {
   "download-without-prompt": { defaultValue: true },
   "normalize-track": { sync: true, defaultValue: true },
   "block-reposts": { sync: true, defaultValue: false },
+  "block-playlists": { sync: true, defaultValue: false },
   "include-producers": { sync: true, defaultValue: true },
   "followed-artists": { defaultValue: [] },
 };
@@ -158,11 +168,13 @@ const handleStorageChanged = (changes: { [key: string]: StorageChange }, areanam
 
     if (entry.value === newValue) continue;
 
-    if (areaname !== "local") logger.logInfo("Updating", key, "to", getDisplayValue(newValue, entry));
+    if (areaname !== "local") logger.logInfo("Remote updating", key, "to", getDisplayValue(newValue, entry));
 
     entry.value = newValue;
 
     if (entry.onChanged) entry.onChanged(newValue as never);
+
+    if (!entry.secret && onConfigValueChanged) onConfigValueChanged(key, newValue);
   }
 };
 

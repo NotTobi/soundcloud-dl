@@ -15,6 +15,7 @@ Click on the icon (and click on 'Options' in Chrome) to get to the configuration
 - Downloading directly to a default location without a dialog
 - Normalization of the track name
 - Blocking of reposts in the 'Stream' feed
+- Blocking playlists in the 'Stream' feed
 - Including producers as artists
 
 ## Changelog

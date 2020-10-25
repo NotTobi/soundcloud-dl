@@ -66,6 +66,13 @@ downloadWithoutPromptElem.onchange = (event: any) => {
   defaultDownloadLocationElem.disabled = !event.target.checked;
 };
 
+const blockReposts = document.querySelector<HTMLInputElement>("#block-reposts");
+const blockPlaylists = document.querySelector<HTMLInputElement>("#block-playlists");
+
+blockReposts.onchange = (event: any) => {
+  if (!event.target.checked) blockPlaylists.checked = false;
+};
+
 document.addEventListener("DOMContentLoaded", restoreSettings);
 document.querySelector("form").addEventListener("submit", saveSettings);
 document.querySelector("form").addEventListener("reset", resetSettings);
