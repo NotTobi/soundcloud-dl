@@ -29,14 +29,13 @@ If you want to support the development of this extension, consider donating!
 [**Donate here**](https://www.paypal.me/nottobii)
 
 ## Known issues
-
 1. The normalization of some track names can fail and produce wrong results
 2. Sometimes the extension fails to recognize a user login/logout. A page refresh can help!
 
 ## How to report an issue
 
-1. When you encounter an issue, open the following link in the same browser session where the error occured: [Link](about:devtools-toolbox?type=extension&id=%7Bc7a839e7-7086-4021-8176-1cfcb7f169ce%7D)
-2. Click on the `Console` tab
+1. When you encounter an issue, open the following link in the same browser session where the error occured: about:devtools-toolbox?type=extension&id=%7Bc7a839e7-7086-4021-8176-1cfcb7f169ce%7D (GitHub won't let me link this properly)
+2. Click on the `Console` tab.
 3. You should now be seeing a bunch of log messages
 4. Right click on one of the messages, choose `Export Visible Messages To` > `File` and save the file
 5. Click the following link to create a new issue: [Link](https://github.com/NotTobi/soundcloud-dl/issues/new)
