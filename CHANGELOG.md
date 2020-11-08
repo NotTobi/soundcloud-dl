@@ -1,3 +1,7 @@
+## 1.8.2
+
+- Display correct date, when filtering reposts
+
 ## 1.8.1
 
 - Update followers for repost filtering
