@@ -34,7 +34,7 @@ function filterReposts(collection: any[]) {
 
       item.type = "track";
       item.user = item.track.user;
-      item.created_at = item.track.created_at;
+      item.created_at = item.track.display_date;
     }
 
     if (blockPlaylists && item.type === "playlist") continue;
@@ -52,7 +52,7 @@ function filterReposts(collection: any[]) {
 
       item.type = "playlist";
       item.user = item.playlist.user;
-      item.created_at = item.playlist.created_at;
+      item.created_at = item.playlist.display_date;
     }
 
     filtered.push(item);
