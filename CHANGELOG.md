@@ -1,3 +1,7 @@
+## 1.9.0
+
+- Add toggle to skip downloading of metadata
+
 ## 1.8.2
 
 - Display correct date, when filtering reposts
