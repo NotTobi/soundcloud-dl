@@ -168,8 +168,9 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
     }
 
     let writer: TagWriter;
+    let downloadBlob: Blob;
 
-    if (!getConfigValue("skip-metadata")) {
+    try {
       if (data.fileExtension === "m4a") {
         const mp4Writer = new Mp4TagWriter(streamBuffer);
 
@@ -179,49 +180,52 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       } else if (data.fileExtension === "mp3") {
         writer = new Mp3TagWriter(streamBuffer);
       }
+
+      if (writer) {
+        writer.setTitle(titleString);
+        // todo: sanitize album as well
+        writer.setAlbum(data.albumName ?? titleString);
+        writer.setArtists([artistsString]);
+
+        writer.setComment("https://github.com/NotTobi/soundcloud-dl");
+
+        if (data.trackNumber > 0) {
+          writer.setTrackNumber(data.trackNumber);
+        }
+
+        const releaseYear = data.uploadDate.getFullYear();
+
+        writer.setYear(releaseYear);
+
+        if (artworkUrl) {
+          const sizeOptions = ["original", "t500x500", "large"];
+          let artworkBuffer = null;
+          let curArtworkUrl;
+
+          do {
+            const curSizeOption = sizeOptions.shift();
+            curArtworkUrl = artworkUrl.replace("-large.", `-${curSizeOption}.`);
+
+            artworkBuffer = await soundcloudApi.downloadArtwork(curArtworkUrl);
+          } while (artworkBuffer === null && sizeOptions.length > 0);
+
+          if (artworkBuffer) {
+            writer.setArtwork(artworkBuffer);
+          }
+        } else {
+          logger.logWarn("Skipping download of Artwork");
+        }
+
+        downloadBlob = writer.getBlob();
+      }
+    } catch (error) {
+      logger.logError("Failed to set metadata", error);
+
+      writer = null;
     }
 
-    let downloadBlob: Blob;
-
-    if (writer) {
-      writer.setTitle(titleString);
-      // todo: sanitize album as well
-      writer.setAlbum(data.albumName ?? titleString);
-      writer.setArtists([artistsString]);
-
-      writer.setComment("https://github.com/NotTobi/soundcloud-dl");
-
-      if (data.trackNumber > 0) {
-        writer.setTrackNumber(data.trackNumber);
-      }
-
-      const releaseYear = data.uploadDate.getFullYear();
-
-      writer.setYear(releaseYear);
-
-      if (artworkUrl) {
-        const sizeOptions = ["original", "t500x500", "large"];
-        let artworkBuffer = null;
-        let curArtworkUrl;
-
-        do {
-          const curSizeOption = sizeOptions.shift();
-          curArtworkUrl = artworkUrl.replace("-large.", `-${curSizeOption}.`);
-
-          artworkBuffer = await soundcloudApi.downloadArtwork(curArtworkUrl);
-        } while (artworkBuffer === null && sizeOptions.length > 0);
-
-        if (artworkBuffer) {
-          writer.setArtwork(artworkBuffer);
-        }
-      } else {
-        logger.logWarn("Skipping download of Artwork");
-      }
-
-      downloadBlob = writer.getBlob();
-    } else {
-      logger.logWarn("No metadata was set!");
-
+    // todo: once we get here the streambuffer could've been corrupted
+    if (!writer) {
       const options: BlobPropertyBag = {};
 
       if (contentType) options.type = contentType;

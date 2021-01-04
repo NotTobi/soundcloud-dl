@@ -33,7 +33,6 @@ export interface Config {
   "block-reposts": ConfigValue<boolean>;
   "block-playlists": ConfigValue<boolean>;
   "include-producers": ConfigValue<boolean>;
-  "skip-metadata": ConfigValue<boolean>;
   "followed-artists": ConfigValue<number[]>;
 }
 
@@ -57,7 +56,6 @@ const config: Config = {
   "block-reposts": { sync: true, defaultValue: false },
   "block-playlists": { sync: true, defaultValue: false },
   "include-producers": { sync: true, defaultValue: true },
-  "skip-metadata": { sync: false, defaultValue: false },
   "followed-artists": { defaultValue: [] },
 };
 
