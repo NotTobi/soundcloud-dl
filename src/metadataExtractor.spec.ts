@@ -1,6 +1,6 @@
 import { MetadataExtractor, Artist, ArtistType, getRemixTypeFromString } from "./metadataExtractor";
 
-const createExtractor = (title: string) => new MetadataExtractor(title, "username");
+const createExtractor = (title: string, username: string = "username") => new MetadataExtractor(title, username);
 
 const braceCombos = [
   ["", ""],
@@ -28,6 +28,19 @@ test("title", () => {
 
   expect(extractor.getArtists()).toEqual(correctArtists);
   expect(extractor.getTitle()).toBe(correctTitle);
+});
+
+test("remove twitter handle from username", () => {
+  const extractor = createExtractor("title", "username (@username)");
+
+  const correctArtists: Artist[] = [
+    {
+      name: "username",
+      type: ArtistType.Main,
+    },
+  ];
+
+  expect(extractor.getArtists()).toEqual(correctArtists);
 });
 
 test.each(titleSeperators)("artist1 %s title", (seperator) => {

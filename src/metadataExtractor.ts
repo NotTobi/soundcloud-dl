@@ -69,7 +69,7 @@ export class MetadataExtractor {
   static readonly featureSeperators = ["featuring", "feat.", "feat", "ft.", "ft", "w/", " w /"];
   static readonly combiningFeatureSeperators = [...MetadataExtractor.featureSeperators, ",", "&", " x "];
   static readonly remixIndicators = ["remix", "flip", "bootleg", "mashup", "edit"];
-  static readonly producerIndicators = ["prod. by", "prod by", "prod.", "prod"];
+  static readonly producerIndicators = ["prod. by", "prod by", "prod.", "prod", "p."];
   static readonly promotions = ["free", "free download", "video in description"];
 
   constructor(private title: string, private username: string) {}
@@ -128,6 +128,8 @@ export class MetadataExtractor {
       }
     }
 
+    artists = artists.map((artist) => this.removeTwitterHandle(artist));
+
     // Distinct (not sure if this works with objects)
     artists = [...new Set(artists)];
 
@@ -149,6 +151,18 @@ export class MetadataExtractor {
     title = this.splitByFeatures(title, false).title;
 
     return this.sanitizeTitle(title);
+  }
+
+  private removeTwitterHandle(artist: Artist) {
+    const regex = new RegExp("^([^\\(]+)\\s?\\(?\\s?@.+\\)?$");
+
+    const result = regex.exec(artist.name);
+
+    if (result && result.length > 1) {
+      artist.name = result[1].trimEnd();
+    }
+
+    return artist;
   }
 
   private splitByTitleSeperators(title: string, extractArtists: boolean): TitleSplit {
