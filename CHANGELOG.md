@@ -1,3 +1,8 @@
+## 1.9.1
+
+- Remove twitter handles from usernames
+- Recover from errors when setting metadata
+
 ## 1.9.0
 
 - Add toggle to skip downloading of metadata
