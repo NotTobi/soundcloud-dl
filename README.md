@@ -31,6 +31,7 @@ If you want to support the development of this extension, consider donating!
 ## Known issues
 1. The normalization of some track names can fail and produce wrong results
 2. Sometimes the extension fails to recognize a user login/logout. A page refresh can help!
+3. The block reposts feature can sometimes not work, checkout [this](https://github.com/NotTobi/soundcloud-dl/issues/12#issuecomment-753988874) for a solution.
 
 ## How to report an issue
 
