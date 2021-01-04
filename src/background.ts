@@ -169,14 +169,16 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
     let writer: TagWriter;
 
-    if (data.fileExtension === "m4a") {
-      const mp4Writer = new Mp4TagWriter(streamBuffer);
+    if (!getConfigValue("skip-metadata")) {
+      if (data.fileExtension === "m4a") {
+        const mp4Writer = new Mp4TagWriter(streamBuffer);
 
-      mp4Writer.setDuration(data.duration);
+        mp4Writer.setDuration(data.duration);
 
-      writer = mp4Writer;
-    } else if (data.fileExtension === "mp3") {
-      writer = new Mp3TagWriter(streamBuffer);
+        writer = mp4Writer;
+      } else if (data.fileExtension === "mp3") {
+        writer = new Mp3TagWriter(streamBuffer);
+      }
     }
 
     let downloadBlob: Blob;
@@ -218,6 +220,8 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
       downloadBlob = writer.getBlob();
     } else {
+      logger.logWarn("No metadata was set!");
+
       const options: BlobPropertyBag = {};
 
       if (contentType) options.type = contentType;
@@ -388,13 +392,14 @@ onBeforeRequest(
       }
     } else {
       const clientId = url.searchParams.get("client_id");
+      const storedClientId = getConfigValue("client-id");
 
       if (clientId) {
         storeConfigValue("client-id", clientId);
-      } else if (getConfigValue("client-id")) {
-        logger.logDebug("Adding ClientId to unauthenticated request...", { url, clientId });
+      } else if (storedClientId) {
+        logger.logDebug("Adding ClientId to unauthenticated request...", { url, clientId: storedClientId });
 
-        url.searchParams.append("client_id", getConfigValue("client-id"));
+        url.searchParams.append("client_id", storedClientId);
 
         return {
           redirectUrl: url.toString(),

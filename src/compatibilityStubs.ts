@@ -59,7 +59,7 @@ export const downloadToFile = (url: string, filename: string, saveAs: boolean) =
     saveAs,
   };
 
-  return new Promise(async (resolve, reject) => {
+  return new Promise<void>(async (resolve, reject) => {
     let downloadId;
 
     if (typeof browser !== "undefined") {
