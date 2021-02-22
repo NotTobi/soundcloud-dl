@@ -299,11 +299,15 @@ export class MetadataExtractor {
   }
 
   private sanitizeArtistName(input: string) {
-    return input.trim();
+    return this.removeNonAsciiCharacters(input).trim();
   }
 
   private sanitizeTitle(input: string) {
-    return input.trim();
+    return this.removeNonAsciiCharacters(input).trim();
+  }
+
+  private removeNonAsciiCharacters(input: string) {
+    return input.replace(/[^\x00-\x7F]/g, "");
   }
 
   private includes(input: string, seperators: string[]) {

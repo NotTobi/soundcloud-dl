@@ -93,7 +93,15 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       }
     }
 
-    const rawFilename = `${artistsString} - ${titleString}`;
+    if (!artistsString) {
+      artistsString = "Unknown";
+    }
+
+    if (!titleString) {
+      titleString = "Unknown";
+    }
+
+    const rawFilename = sanitize(`${artistsString} - ${titleString}`);
 
     let artworkUrl = data.artworkUrl;
 
@@ -237,13 +245,11 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
     const defaultDownloadLocation = getConfigValue("default-download-location");
     let downloadFilename = rawFilename + "." + data.fileExtension;
 
-    downloadFilename = sanitize(downloadFilename);
-
     if (!saveAs && defaultDownloadLocation) {
       downloadFilename = defaultDownloadLocation + "/" + downloadFilename;
     }
 
-    logger.logInfo(`Downloading tack as \"${downloadFilename}\"`);
+    logger.logInfo(`Downloading track as '${downloadFilename}'`);
 
     let downloadUrl: string;
 
