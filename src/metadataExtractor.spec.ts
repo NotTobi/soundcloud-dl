@@ -43,6 +43,26 @@ test("remove twitter handle from username", () => {
   expect(extractor.getArtists()).toEqual(correctArtists);
 });
 
+test("braces after features", () => {
+  const extractor = createExtractor("title ft. artist (unrelated)");
+
+  const correctArtists: Artist[] = [
+    {
+      name: "username",
+      type: ArtistType.Main,
+    },
+    {
+      name: "artist",
+      type: ArtistType.Feature,
+    },
+  ];
+
+  const correctTitle = "title (unrelated)";
+
+  expect(extractor.getArtists()).toEqual(correctArtists);
+  expect(extractor.getTitle()).toEqual(correctTitle);
+});
+
 test.each(titleSeperators)("artist1 %s title", (seperator) => {
   const title = `artist1 ${seperator} title`;
   const extractor = createExtractor(title);

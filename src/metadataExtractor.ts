@@ -196,12 +196,12 @@ export class MetadataExtractor {
 
     if (this.includes(title, MetadataExtractor.featureSeperators)) {
       const seperators = this.escapeRegexArray(MetadataExtractor.featureSeperators).join("|");
-      const regex = new RegExp(`\\[?\\(?(${seperators})([^\\[\\]\\(\\)]+)\\[?\\]?\\(?\\)?`, "i");
+      const regex = new RegExp(`(?:${seperators})([^\\[\\]\\(\\)]+)`, "i");
 
       const result = regex.exec(title);
 
       if (result && result.length > 0) {
-        const [featureSection, _, artistsString] = result;
+        const [featureSection, artistsString] = result;
 
         if (extractArtists) {
           artistNames = this.getArtistNames(artistsString);
@@ -222,12 +222,12 @@ export class MetadataExtractor {
 
     if (this.includes(title, MetadataExtractor.producerIndicators)) {
       const seperators = this.escapeRegexArray(MetadataExtractor.producerIndicators).join("|");
-      const regex = new RegExp(`\\[?\\(?(${seperators})([^\\[\\]\\(\\)]+)\\[?\\]?\\(?\\)?`, "i");
+      const regex = new RegExp(`(?:${seperators})([^\\[\\]\\(\\)]+)`, "i");
 
       const result = regex.exec(title);
 
       if (result && result.length > 0) {
-        const [producerSection, _, artistsString] = result;
+        const [producerSection, artistsString] = result;
 
         if (extractArtists) {
           artistNames = this.getArtistNames(artistsString);
@@ -303,7 +303,11 @@ export class MetadataExtractor {
   }
 
   private sanitizeTitle(input: string) {
-    return this.removeNonAsciiCharacters(input).trim();
+    let sanitized = this.removeNonAsciiCharacters(input);
+
+    sanitized = sanitized.replace("()", "").replace("[]", "");
+
+    return sanitized.trim();
   }
 
   private removeNonAsciiCharacters(input: string) {
