@@ -66,13 +66,13 @@ function stableSort<T>(input: T[], prop: keyof T) {
 
 export class MetadataExtractor {
   static readonly titleSeperators = ["-", "–", "—", "~"];
-  static readonly featureSeperators = ["featuring", "feat.", "feat", "ft.", "ft", "w/", " w /"];
+  static readonly featureSeperators = ["featuring", "feat.", "feat", "ft.", "ft", "w/", " w /", "+"];
   static readonly combiningFeatureSeperators = [...MetadataExtractor.featureSeperators, ",", "&", " x "];
   static readonly remixIndicators = ["remix", "flip", "bootleg", "mashup", "edit"];
   static readonly producerIndicators = ["prod. by", "prod by", "prod.", "prod", "p."];
   static readonly promotions = ["free", "free download", "video in description"];
 
-  constructor(private title: string, private username: string) {}
+  constructor(private title: string, private username: string, private userPermalink?: string) {}
 
   getArtists(): Artist[] {
     let artists: Artist[] = [];
@@ -117,14 +117,16 @@ export class MetadataExtractor {
 
     if (!hasMainArtist) {
       const user = {
-        name: this.sanitizeArtistName(this.username),
+        name: this.sanitizeArtistName(this.username) || this.userPermalink,
         type: ArtistType.Main,
       };
 
-      if (artists.length > 0) {
-        artists = [user, ...artists];
-      } else {
-        artists.push(user);
+      if (!!user.name) {
+        if (artists.length > 0) {
+          artists = [user, ...artists];
+        } else {
+          artists.push(user);
+        }
       }
     }
 

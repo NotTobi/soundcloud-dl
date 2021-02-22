@@ -76,7 +76,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
     let titleString = data.title;
 
     if (getConfigValue("normalize-track")) {
-      const extractor = new MetadataExtractor(data.title, data.username);
+      const extractor = new MetadataExtractor(data.title, data.username, data.userPermalink);
 
       let artists = extractor.getArtists();
 
@@ -95,7 +95,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
     }
 
     if (!artistsString) {
-      artistsString = data.userPermalink ?? "Unknown";
+      artistsString = "Unknown";
     }
 
     if (!titleString) {
