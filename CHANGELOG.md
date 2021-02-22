@@ -1,3 +1,8 @@
+## 1.9.2
+
+- Remove Non-ASCII characters from title & artists
+- Prevent opening braces after features from being deleted
+
 ## 1.9.1
 
 - Remove twitter handles from usernames
