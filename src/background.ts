@@ -31,6 +31,7 @@ interface DownloadData {
   duration: number;
   uploadDate: Date;
   username: string;
+  userPermalink: string;
   avatarUrl: string;
   artworkUrl: string;
   streamUrl: string;
@@ -94,7 +95,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
     }
 
     if (!artistsString) {
-      artistsString = "Unknown";
+      artistsString = data.userPermalink ?? "Unknown";
     }
 
     if (!titleString) {
@@ -480,6 +481,7 @@ async function downloadTrack(
     fileExtension: stream.extension,
     title: track.title,
     username: track.user.username,
+    userPermalink: track.user.permalink,
     artworkUrl: track.artwork_url,
     avatarUrl: track.user.avatar_url,
     trackNumber,

@@ -20,6 +20,7 @@ interface User {
   id: number;
   username: string;
   avatar_url: string;
+  permalink: string;
 }
 
 export interface Track {
