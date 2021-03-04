@@ -27,6 +27,7 @@ logger.logInfo("Starting with version: " + manifest.version);
 loadConfiguration(true);
 
 interface DownloadData {
+  trackId: number;
   title: string;
   duration: number;
   uploadDate: Date;
@@ -70,7 +71,7 @@ function sanitize(
 async function handleDownload(data: DownloadData, reportProgress: (progress?: number, error?: string) => void) {
   // todo: one big try-catch is not really good error handling :/
   try {
-    logger.logInfo("Initiating download with payload", { payload: data });
+    logger.logInfo(`Initiating download of ${data.trackId} with payload`, { payload: data });
 
     let artistsString = data.username;
     let titleString = data.title;
@@ -107,11 +108,11 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
     let artworkUrl = data.artworkUrl;
 
     if (!artworkUrl) {
-      logger.logInfo("No Artwork URL could be determined. Fallback to User Avatar");
+      logger.logInfo(`No Artwork URL could be determined. Fallback to User Avatar (TrackId: ${data.trackId})`);
       artworkUrl = data.avatarUrl;
     }
 
-    logger.logInfo(`Starting download of '${rawFilename}'...`);
+    logger.logInfo(`Starting download of '${rawFilename}' (TrackId: ${data.trackId})...`);
 
     let streamBuffer: ArrayBuffer;
     let streamHeaders: Headers;
@@ -145,7 +146,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
         streamBuffer = concatArrayBuffers(segments);
       } catch (error) {
-        logger.logError("Failed to download m3u8 playlist", error);
+        logger.logError(`Failed to download m3u8 playlist (TrackId: ${data.trackId})`, error);
 
         throw error;
       }
@@ -153,14 +154,14 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       try {
         [streamBuffer, streamHeaders] = await soundcloudApi.downloadStream(data.streamUrl, reportProgress);
       } catch (error) {
-        logger.logError("Failed to download stream", error);
+        logger.logError(`Failed to download stream (TrackId: ${data.trackId})`, error);
 
         throw error;
       }
     }
 
     if (!streamBuffer) {
-      throw new Error("Undefined streamBuffer");
+      throw new Error(`Undefined streamBuffer (TrackId: ${data.trackId})`);
     }
 
     let contentType;
@@ -173,7 +174,10 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
       data.fileExtension = extension;
 
-      logger.logInfo("Inferred file extension from 'content-type' header", { contentType, extension });
+      logger.logInfo(`Inferred file extension from 'content-type' header (TrackId: ${data.trackId})`, {
+        contentType,
+        extension,
+      });
     }
 
     let writer: TagWriter;
@@ -183,7 +187,11 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       if (data.fileExtension === "m4a") {
         const mp4Writer = new Mp4TagWriter(streamBuffer);
 
-        mp4Writer.setDuration(data.duration);
+        try {
+          mp4Writer.setDuration(data.duration);
+        } catch (error) {
+          logger.logError(`Failed to set duration for track (TrackId: ${data.trackId})`, error);
+        }
 
         writer = mp4Writer;
       } else if (data.fileExtension === "mp3") {
@@ -222,13 +230,13 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
             writer.setArtwork(artworkBuffer);
           }
         } else {
-          logger.logWarn("Skipping download of Artwork");
+          logger.logWarn(`Skipping download of Artwork (TrackId: ${data.trackId})`);
         }
 
         downloadBlob = writer.getBlob();
       }
     } catch (error) {
-      logger.logError("Failed to set metadata", error);
+      logger.logError(`Failed to set metadata (TrackId: ${data.trackId})`, error);
 
       writer = null;
     }
@@ -250,7 +258,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       downloadFilename = defaultDownloadLocation + "/" + downloadFilename;
     }
 
-    logger.logInfo(`Downloading track as '${downloadFilename}'`);
+    logger.logInfo(`Downloading track as '${downloadFilename}' (TrackId: ${data.trackId})...`);
 
     let downloadUrl: string;
 
@@ -259,18 +267,21 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
       await downloadToFile(downloadUrl, downloadFilename, saveAs);
 
-      logger.logInfo(`Successfully downloaded '${rawFilename}'!`);
+      logger.logInfo(`Successfully downloaded '${rawFilename}' (TrackId: ${data.trackId})!`);
 
       reportProgress(101);
     } catch (error) {
-      logger.logError("Failed to download track to file system", { downloadFilename, saveAs });
+      logger.logError(`Failed to download track to file system (TrackId: ${data.trackId})`, {
+        downloadFilename,
+        saveAs,
+      });
 
       reportProgress(undefined, "Failed to download track to file system");
     } finally {
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
     }
   } catch (error) {
-    logger.logError("Unknown error", error);
+    logger.logError(`Unknown error (TrackId: ${data.trackId})`, error);
 
     reportProgress(undefined, "Encountered unknown error");
   }
@@ -475,6 +486,7 @@ async function downloadTrack(
   }
 
   const downloadData: DownloadData = {
+    trackId: track.id,
     duration: track.duration,
     uploadDate: new Date(track.display_date),
     streamUrl: stream.url,
