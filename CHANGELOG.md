@@ -1,3 +1,7 @@
+## 1.9.4
+
+- Continue download if setting of m4a duration fails
+
 ## 1.9.3
 
 - Replace empty username with URL permalink
