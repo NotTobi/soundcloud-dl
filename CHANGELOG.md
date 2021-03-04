@@ -1,3 +1,7 @@
+## 1.9.3
+
+- Replace empty username with URL permalink
+
 ## 1.9.2
 
 - Remove Non-ASCII characters from title & artists
