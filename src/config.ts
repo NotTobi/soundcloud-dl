@@ -30,6 +30,7 @@ export interface Config {
   "default-download-location": ConfigValue<string>;
   "download-without-prompt": ConfigValue<boolean>;
   "normalize-track": ConfigValue<boolean>;
+  "set-metadata": ConfigValue<boolean>;
   "block-reposts": ConfigValue<boolean>;
   "block-playlists": ConfigValue<boolean>;
   "include-producers": ConfigValue<boolean>;
@@ -53,6 +54,7 @@ const config: Config = {
   "default-download-location": { defaultValue: "SoundCloud", sanitize: (value) => sanitizeFilename(value) },
   "download-without-prompt": { defaultValue: true },
   "normalize-track": { sync: true, defaultValue: true },
+  "set-metadata": { sync: true, defaultValue: true },
   "block-reposts": { sync: true, defaultValue: false },
   "block-playlists": { sync: true, defaultValue: false },
   "include-producers": { sync: true, defaultValue: true },

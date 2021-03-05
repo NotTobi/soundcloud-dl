@@ -180,69 +180,69 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       });
     }
 
-    let writer: TagWriter;
     let downloadBlob: Blob;
 
-    try {
-      if (data.fileExtension === "m4a") {
-        const mp4Writer = new Mp4TagWriter(streamBuffer);
+    if (getConfigValue("set-metadata")) {
+      try {
+        let writer: TagWriter;
 
-        try {
-          mp4Writer.setDuration(data.duration);
-        } catch (error) {
-          logger.logError(`Failed to set duration for track (TrackId: ${data.trackId})`, error);
-        }
+        if (data.fileExtension === "m4a") {
+          const mp4Writer = new Mp4TagWriter(streamBuffer);
 
-        writer = mp4Writer;
-      } else if (data.fileExtension === "mp3") {
-        writer = new Mp3TagWriter(streamBuffer);
-      }
-
-      if (writer) {
-        writer.setTitle(titleString);
-        // todo: sanitize album as well
-        writer.setAlbum(data.albumName ?? titleString);
-        writer.setArtists([artistsString]);
-
-        writer.setComment("https://github.com/NotTobi/soundcloud-dl");
-
-        if (data.trackNumber > 0) {
-          writer.setTrackNumber(data.trackNumber);
-        }
-
-        const releaseYear = data.uploadDate.getFullYear();
-
-        writer.setYear(releaseYear);
-
-        if (artworkUrl) {
-          const sizeOptions = ["original", "t500x500", "large"];
-          let artworkBuffer = null;
-          let curArtworkUrl;
-
-          do {
-            const curSizeOption = sizeOptions.shift();
-            curArtworkUrl = artworkUrl.replace("-large.", `-${curSizeOption}.`);
-
-            artworkBuffer = await soundcloudApi.downloadArtwork(curArtworkUrl);
-          } while (artworkBuffer === null && sizeOptions.length > 0);
-
-          if (artworkBuffer) {
-            writer.setArtwork(artworkBuffer);
+          try {
+            mp4Writer.setDuration(data.duration);
+          } catch (error) {
+            logger.logError(`Failed to set duration for track (TrackId: ${data.trackId})`, error);
           }
-        } else {
-          logger.logWarn(`Skipping download of Artwork (TrackId: ${data.trackId})`);
+
+          writer = mp4Writer;
+        } else if (data.fileExtension === "mp3") {
+          writer = new Mp3TagWriter(streamBuffer);
         }
 
-        downloadBlob = writer.getBlob();
-      }
-    } catch (error) {
-      logger.logError(`Failed to set metadata (TrackId: ${data.trackId})`, error);
+        if (writer) {
+          writer.setTitle(titleString);
+          // todo: sanitize album as well
+          writer.setAlbum(data.albumName ?? titleString);
+          writer.setArtists([artistsString]);
 
-      writer = null;
+          writer.setComment("https://github.com/NotTobi/soundcloud-dl");
+
+          if (data.trackNumber > 0) {
+            writer.setTrackNumber(data.trackNumber);
+          }
+
+          const releaseYear = data.uploadDate.getFullYear();
+
+          writer.setYear(releaseYear);
+
+          if (artworkUrl) {
+            const sizeOptions = ["original", "t500x500", "large"];
+            let artworkBuffer = null;
+            let curArtworkUrl;
+
+            do {
+              const curSizeOption = sizeOptions.shift();
+              curArtworkUrl = artworkUrl.replace("-large.", `-${curSizeOption}.`);
+
+              artworkBuffer = await soundcloudApi.downloadArtwork(curArtworkUrl);
+            } while (artworkBuffer === null && sizeOptions.length > 0);
+
+            if (artworkBuffer) {
+              writer.setArtwork(artworkBuffer);
+            }
+          } else {
+            logger.logWarn(`Skipping download of Artwork (TrackId: ${data.trackId})`);
+          }
+
+          downloadBlob = writer.getBlob();
+        }
+      } catch (error) {
+        logger.logError(`Failed to set metadata (TrackId: ${data.trackId})`, error);
+      }
     }
 
-    // todo: once we get here the streambuffer could've been corrupted
-    if (!writer) {
+    if (!downloadBlob) {
       const options: BlobPropertyBag = {};
 
       if (contentType) options.type = contentType;
