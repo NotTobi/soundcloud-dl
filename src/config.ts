@@ -131,7 +131,7 @@ export async function loadConfiguration(monitorStorage: boolean = false) {
   const values = await loadConfigValues(configKeys);
 
   for (const key of configKeys) {
-    config[key].value = values[key];
+    config[key].value = values[key] ?? config[key].defaultValue;
   }
 
   if (monitorStorage && !isStorageMonitored) {
