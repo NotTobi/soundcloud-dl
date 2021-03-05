@@ -1,3 +1,8 @@
+## 1.9.5
+
+- Ability to toggle if you want to set metadata or not
+- Load configuration values correctly from sync storage
+
 ## 1.9.4
 
 - Continue download if setting of m4a duration fails
