@@ -1,3 +1,7 @@
+## 1.9.7
+
+- Remove non-printable characters from filename
+
 ## 1.9.6
 
 - Correctly surface errors to the UI
