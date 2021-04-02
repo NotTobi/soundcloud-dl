@@ -534,6 +534,20 @@ function sendDownloadProgress(tabId: number, downloadId: string, progress?: numb
   sendMessageToTab(tabId, downloadProgress);
 }
 
+function chunkArray<T>(array: T[], chunkSize: number) {
+  if (chunkSize < 1) throw new Error("Invalid chunk size");
+
+  const chunks: T[][] = [];
+
+  for (let i = 0; i < array.length; i += chunkSize) {
+    const chunk = array.slice(i, i + chunkSize);
+
+    chunks.push(chunk);
+  }
+
+  return chunks;
+}
+
 onMessage(async (sender, message: DownloadRequest) => {
   const tabId = sender.tab.id;
   const { downloadId, url, type } = message;
@@ -542,17 +556,13 @@ onMessage(async (sender, message: DownloadRequest) => {
 
   try {
     if (type === "DOWNLOAD_SET") {
+      logger.logDebug("Received set download request", { url });
+
       const set = await soundcloudApi.resolveUrl<Playlist>(url);
       const isAlbum = set.set_type === "album" || set.set_type === "ep";
 
       const trackIds = set.tracks.map((i) => i.id);
 
-      const keyedTracks = await soundcloudApi.getTracks(trackIds);
-      const tracks = Object.values(keyedTracks).reverse();
-
-      logger.logInfo(`Downloading ${isAlbum ? "album" : "playlist"}...`);
-
-      const downloads = [];
       const progresses: { [key: number]: number } = {};
 
       const reportPlaylistProgress = (trackId: number) => (progress?: number) => {
@@ -565,21 +575,34 @@ onMessage(async (sender, message: DownloadRequest) => {
         sendDownloadProgress(tabId, downloadId, totalProgress / trackIds.length);
       };
 
-      const treatAsAlbum = isAlbum && tracks.length > 1;
+      const treatAsAlbum = isAlbum && trackIds.length > 1;
 
-      for (let i = 0; i < tracks.length; i++) {
-        const trackNumber = treatAsAlbum ? i + 1 : undefined;
-        const albumName = treatAsAlbum ? set.title : undefined;
+      const trackIdChunks = chunkArray(trackIds, 50);
 
-        const download = downloadTrack(tracks[i], trackNumber, albumName, reportPlaylistProgress(tracks[i].id));
+      for (const trackIdChunk of trackIdChunks) {
+        const keyedTracks = await soundcloudApi.getTracks(trackIdChunk);
+        const tracks = Object.values(keyedTracks).reverse();
 
-        downloads.push(download);
+        logger.logInfo(`Downloading ${isAlbum ? "album" : "playlist"}...`);
+
+        const downloads = [];
+
+        for (let i = 0; i < tracks.length; i++) {
+          const trackNumber = treatAsAlbum ? i + 1 : undefined;
+          const albumName = treatAsAlbum ? set.title : undefined;
+
+          const download = downloadTrack(tracks[i], trackNumber, albumName, reportPlaylistProgress(tracks[i].id));
+
+          downloads.push(download);
+        }
+
+        await Promise.all(downloads);
       }
-
-      await Promise.all(downloads);
 
       logger.logInfo(`Downloaded ${isAlbum ? "album" : "playlist"}!`);
     } else if (type === "DOWNLOAD") {
+      logger.logDebug("Received track download request", { url });
+
       const track = await soundcloudApi.resolveUrl<Track>(url);
 
       const reportTrackProgress = (progress?: number) => {
