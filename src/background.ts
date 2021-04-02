@@ -252,6 +252,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
     const saveAs = !getConfigValue("download-without-prompt");
     const defaultDownloadLocation = getConfigValue("default-download-location");
+    // todo: remove unicode characters from name
     let downloadFilename = rawFilename + "." + data.fileExtension;
 
     if (!saveAs && defaultDownloadLocation) {
@@ -576,10 +577,15 @@ onMessage(async (sender, message: DownloadRequest) => {
       };
 
       const treatAsAlbum = isAlbum && trackIds.length > 1;
+      const albumName = treatAsAlbum ? set.title : undefined;
 
-      const trackIdChunks = chunkArray(trackIds, 50);
+      const trackIdChunkSize = 10;
+      const trackIdChunks = chunkArray(trackIds, trackIdChunkSize);
 
+      let currentTrackIdChunk = 0;
       for (const trackIdChunk of trackIdChunks) {
+        const baseTrackNumber = currentTrackIdChunk * trackIdChunkSize;
+
         const keyedTracks = await soundcloudApi.getTracks(trackIdChunk);
         const tracks = Object.values(keyedTracks).reverse();
 
@@ -588,8 +594,7 @@ onMessage(async (sender, message: DownloadRequest) => {
         const downloads = [];
 
         for (let i = 0; i < tracks.length; i++) {
-          const trackNumber = treatAsAlbum ? i + 1 : undefined;
-          const albumName = treatAsAlbum ? set.title : undefined;
+          const trackNumber = treatAsAlbum ? baseTrackNumber + i + 1 : undefined;
 
           const download = downloadTrack(tracks[i], trackNumber, albumName, reportPlaylistProgress(tracks[i].id));
 
@@ -597,6 +602,8 @@ onMessage(async (sender, message: DownloadRequest) => {
         }
 
         await Promise.all(downloads);
+
+        currentTrackIdChunk++;
       }
 
       logger.logInfo(`Downloaded ${isAlbum ? "album" : "playlist"}!`);
