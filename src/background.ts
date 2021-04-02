@@ -68,7 +68,7 @@ function sanitize(
   return sanitized.replace(/\s{2,}/, " ");
 }
 
-async function handleDownload(data: DownloadData, reportProgress: (progress?: number, error?: string) => void) {
+async function handleDownload(data: DownloadData, reportProgress: (progress?: number) => void) {
   // todo: one big try-catch is not really good error handling :/
   try {
     logger.logInfo(`Initiating download of ${data.trackId} with payload`, { payload: data });
@@ -276,14 +276,16 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
         saveAs,
       });
 
-      reportProgress(undefined, "Failed to download track to file system");
+      throw new Error(`Failed to download track to file system (TrackId: ${data.trackId})`);
     } finally {
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
     }
   } catch (error) {
-    logger.logError(`Unknown error (TrackId: ${data.trackId})`, error);
+    const message = `Unknown error during download (TrackId: ${data.trackId})`;
 
-    reportProgress(undefined, "Encountered unknown error");
+    logger.logError(message, error);
+
+    throw new Error(message);
   }
 }
 
@@ -441,14 +443,12 @@ async function downloadTrack(
   track: Track,
   trackNumber: number | undefined,
   albumName: string | undefined,
-  reportProgress: (progress?: number, error?: string) => void
+  reportProgress: (progress?: number) => void
 ) {
   if (!isValidTrack(track)) {
     logger.logError("Track does not satisfy constraints needed to be downloadable", track);
 
-    reportProgress(undefined, "Track does not satisfy constraints needed to be downloadable");
-
-    return;
+    throw new Error("Track does not satisfy constraints needed to be downloadable");
   }
 
   let stream: StreamDetails;
@@ -469,20 +469,14 @@ async function downloadTrack(
     if (!streamDetails) {
       logger.logError("Stream details could not be determined", track);
 
-      reportProgress(undefined, "Stream details could not be determined");
-
-      return;
+      throw new Error("Stream details could not be determined");
     }
 
     stream = await soundcloudApi.getStreamDetails(streamDetails.url);
   }
 
   if (!stream) {
-    logger.logError("Stream could not be determined");
-
-    reportProgress(undefined, "Stream could not be determined");
-
-    return;
+    throw new Error("Stream could not be determined");
   }
 
   const downloadData: DownloadData = {
@@ -522,11 +516,19 @@ interface DownloadProgress {
   error?: string;
 }
 
-function sendDownloadProgress(tabId, downloadId: string, progress?: number, error?: string) {
+function sendDownloadProgress(tabId: number, downloadId: string, progress?: number, error?: Error | string) {
+  let errorMessage: string = "";
+
+  if (error instanceof Error) {
+    errorMessage = error.message;
+  } else {
+    errorMessage = error;
+  }
+
   const downloadProgress: DownloadProgress = {
     downloadId,
     progress,
-    error,
+    error: errorMessage,
   };
 
   sendMessageToTab(tabId, downloadProgress);
@@ -553,14 +555,14 @@ onMessage(async (sender, message: DownloadRequest) => {
       const downloads = [];
       const progresses: { [key: number]: number } = {};
 
-      const reportPlaylistProgress = (trackId: number) => (progress?: number, error?: string) => {
+      const reportPlaylistProgress = (trackId: number) => (progress?: number) => {
         if (progress) {
           progresses[trackId] = progress;
         }
 
         const totalProgress = Object.values(progresses).reduce((acc, cur) => acc + cur, 0);
 
-        sendDownloadProgress(tabId, downloadId, totalProgress / trackIds.length, error);
+        sendDownloadProgress(tabId, downloadId, totalProgress / trackIds.length);
       };
 
       const treatAsAlbum = isAlbum && tracks.length > 1;
@@ -580,8 +582,8 @@ onMessage(async (sender, message: DownloadRequest) => {
     } else if (type === "DOWNLOAD") {
       const track = await soundcloudApi.resolveUrl<Track>(url);
 
-      const reportTrackProgress = (progress?: number, error?: string) => {
-        sendDownloadProgress(tabId, downloadId, progress, error);
+      const reportTrackProgress = (progress?: number) => {
+        sendDownloadProgress(tabId, downloadId, progress);
       };
 
       await downloadTrack(track, undefined, undefined, reportTrackProgress);
@@ -591,7 +593,7 @@ onMessage(async (sender, message: DownloadRequest) => {
   } catch (error) {
     sendDownloadProgress(tabId, downloadId, undefined, error);
 
-    logger.logError("Failed init initialize download", error);
+    logger.logError("Download failed unexpectedly", error);
   }
 });
 
