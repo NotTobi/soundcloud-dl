@@ -65,7 +65,7 @@ function sanitize(
 ) {
   const sanitized = sanitizeFilename(input, options);
 
-  return sanitized.replace(/\s{2,}/, " ");
+  return sanitized.replace(/[^\x20-\x7E]+/gu, "").replace(/\s{2,}/, " ");
 }
 
 async function handleDownload(data: DownloadData, reportProgress: (progress?: number) => void) {
@@ -252,7 +252,6 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
     const saveAs = !getConfigValue("download-without-prompt");
     const defaultDownloadLocation = getConfigValue("default-download-location");
-    // todo: remove unicode characters from name
     let downloadFilename = rawFilename + "." + data.fileExtension;
 
     if (!saveAs && defaultDownloadLocation) {
