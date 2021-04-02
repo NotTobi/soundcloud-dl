@@ -1,3 +1,8 @@
+## 1.9.6
+
+- Correctly surface errors to the UI
+- Chunk download of large playlists/albums to not hit a limit of the SoundCloud API
+
 ## 1.9.5
 
 - Ability to toggle if you want to set metadata or not
