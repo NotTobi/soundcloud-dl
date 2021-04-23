@@ -33,6 +33,7 @@ interface DownloadData {
   uploadDate: Date;
   username: string;
   userPermalink: string;
+  genre: string;
   avatarUrl: string;
   artworkUrl: string;
   streamUrl: string;
@@ -75,6 +76,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
     let artistsString = data.username;
     let titleString = data.title;
+    let genreString = data.genre;
 
     if (getConfigValue("normalize-track")) {
       const extractor = new MetadataExtractor(data.title, data.username, data.userPermalink);
@@ -93,6 +95,10 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
         titleString += ` (${remixerNames} ${remixTypeString})`;
       }
+    }
+
+    if (!genreString) {
+      genreString = "Genre unknown";
     }
 
     if (!artistsString) {
@@ -206,7 +212,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
           writer.setAlbum(data.albumName ?? titleString);
           writer.setArtists([artistsString]);
 
-          writer.setComment("https://github.com/NotTobi/soundcloud-dl");
+          writer.setComment(`Genre: ${genreString} - check https://github.com/NotTobi/soundcloud-dl`);
 
           if (data.trackNumber > 0) {
             writer.setTrackNumber(data.trackNumber);
@@ -489,6 +495,7 @@ async function downloadTrack(
     username: track.user.username,
     userPermalink: track.user.permalink,
     artworkUrl: track.artwork_url,
+    genre: track.genre,
     avatarUrl: track.user.avatar_url,
     trackNumber,
     albumName,

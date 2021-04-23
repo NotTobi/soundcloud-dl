@@ -31,6 +31,7 @@ export interface Track {
   state: string;
   title: string;
   artwork_url: string;
+  genre: string;
   streamable: boolean;
   downloadable: boolean;
   has_downloads_left: boolean;
