@@ -1,3 +1,7 @@
+## 1.9.8
+
+- Handle some edge cases when extracting metadata
+
 ## 1.9.7
 
 - Remove non-printable characters from filename
