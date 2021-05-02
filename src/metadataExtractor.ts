@@ -156,6 +156,8 @@ export class MetadataExtractor {
   }
 
   private removeTwitterHandle(artist: Artist) {
+    artist.name = artist.name.replace(/^[@]+/, "");
+
     const regex = new RegExp("^([^\\(]+)\\s?\\(?\\s?@.+\\)?$");
 
     const result = regex.exec(artist.name);

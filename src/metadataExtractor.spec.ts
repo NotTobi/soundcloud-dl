@@ -43,6 +43,19 @@ test("remove twitter handle from username", () => {
   expect(extractor.getArtists()).toEqual(correctArtists);
 });
 
+test("remove twitter handle from username directly", () => {
+  const extractor = createExtractor("title", "@username");
+
+  const correctArtists: Artist[] = [
+    {
+      name: "username",
+      type: ArtistType.Main,
+    },
+  ];
+
+  expect(extractor.getArtists()).toEqual(correctArtists);
+});
+
 test("braces after features", () => {
   const extractor = createExtractor("title ft. artist (unrelated)");
 
