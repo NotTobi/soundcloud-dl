@@ -152,15 +152,20 @@ export class MetadataExtractor {
 
     title = this.splitByFeatures(title, false).title;
 
+    // todo: maybe these should be parsed as producers instead
+    title = this.removeTrailingBraces(title);
+
     return this.sanitizeTitle(title);
+  }
+
+  private removeTrailingBraces(title: string) {
+    return title.replace(/\s*[\(\[].*[\)\]]$/, "");
   }
 
   private removeTwitterHandle(artist: Artist) {
     artist.name = artist.name.replace(/^[@]+/, "");
 
-    const regex = new RegExp("^([^\\(]+)\\s?\\(?\\s?@.+\\)?$");
-
-    const result = regex.exec(artist.name);
+    const result = /^([^\(]+)\s?\(?\s?@.+\)?$/.exec(artist.name);
 
     if (result && result.length > 1) {
       artist.name = result[1].trimEnd();
@@ -199,7 +204,7 @@ export class MetadataExtractor {
     let artistNames: string[] = [];
 
     if (this.includes(title, MetadataExtractor.featureSeperators)) {
-      const seperators = this.escapeRegexArray(MetadataExtractor.featureSeperators).join("|");
+      const seperators = this.escapeRegexArray(MetadataExtractor.featureSeperators).join("+|") + "+";
       const regex = new RegExp(`(?:${seperators})([^\\[\\]\\(\\)]+)`, "i");
 
       const result = regex.exec(title);
