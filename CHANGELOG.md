@@ -1,3 +1,7 @@
+## 1.9.9
+
+- Handle some edge cases when extracting metadata
+
 ## 1.9.8
 
 - Handle some edge cases when extracting metadata
