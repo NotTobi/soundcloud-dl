@@ -7,7 +7,7 @@ interface MediaTranscodingFormat {
 
 interface MediaTranscoding {
   snipped: boolean;
-  quality: string;
+  quality: "sq" | "hq";
   url: string;
   format: MediaTranscodingFormat;
 }

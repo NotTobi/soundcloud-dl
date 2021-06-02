@@ -291,52 +291,65 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
 interface TranscodingDetails {
   url: string;
-  protocol: string;
+  protocol: "hls" | "progressive";
+  quality: "hq" | "sq";
 }
 
-function getTranscodingDetails(details: Track): TranscodingDetails | null {
+function getTranscodingDetails(details: Track): TranscodingDetails[] | null {
   if (details?.media?.transcodings?.length < 1) return null;
 
-  const mpegStreams = details.media.transcodings.filter(
-    (i) =>
-      (i.format?.protocol === "progressive" || i.format?.protocol === "hls") &&
-      (i.format?.mime_type?.startsWith("audio/mpeg") || i.format?.mime_type?.startsWith("audio/mp4")) &&
-      !i.snipped
-  );
+  const mpegStreams = details.media.transcodings
+    .filter(
+      (transcoding) =>
+        (transcoding.format?.protocol === "progressive" || transcoding.format?.protocol === "hls") &&
+        (transcoding.format?.mime_type?.startsWith("audio/mpeg") ||
+          transcoding.format?.mime_type?.startsWith("audio/mp4")) &&
+        !transcoding.snipped
+    )
+    .map<TranscodingDetails>((transcoding) => ({
+      protocol: transcoding.format.protocol,
+      url: transcoding.url,
+      quality: transcoding.quality,
+    }));
 
   if (mpegStreams.length < 1) {
-    logger.logError("No streams could be found found!");
+    logger.logWarn("No transcodings streams could be determined!");
 
     return null;
   }
 
-  // prefer 'progressive' streams
-  const sortedStreams = mpegStreams.sort((a, b) => {
-    if (a.format.protocol === "progressive" && b.format.protocol === "hls") {
+  // prefer 'hqq and 'progressive' streams
+  let streams = mpegStreams.sort((a, b) => {
+    if (a.quality === "hq" && b.quality === "sq") {
       return -1;
-    } else if (a.format.protocol === "hls" && b.format.protocol === "progressive") {
+    }
+
+    if (a.quality === "sq" && b.quality === "hq") {
+      return 1;
+    }
+
+    if (a.protocol === "progressive" && b.protocol === "hls") {
+      return -1;
+    }
+
+    if (a.protocol === "hls" && b.protocol === "progressive") {
       return 1;
     }
 
     return 0;
   });
 
-  const hqStreams = sortedStreams.filter((i) => i.quality === "hq");
-  const nonHqStreams = sortedStreams.filter((i) => i.quality !== "hq");
-
-  if (getConfigValue("download-hq-version") && hqStreams.length > 0) {
-    logger.logInfo("Using High Quality Stream!");
-
-    return {
-      url: hqStreams[0].url,
-      protocol: hqStreams[0].format.protocol,
-    };
+  if (!getConfigValue("download-hq-version")) {
+    streams = streams.filter((stream) => stream.quality !== "hq");
   }
 
-  return {
-    url: nonHqStreams[0].url,
-    protocol: nonHqStreams[0].format.protocol,
-  };
+  console.log({ streams });
+
+  if (streams.some((stream) => stream.quality === "hq")) {
+    logger.logInfo("Including high quality streams!");
+  }
+
+  return streams;
 }
 
 // -------------------- HANDLERS --------------------
@@ -439,6 +452,10 @@ function isValidTrack(track: Track) {
   return track && track.kind === "track" && track.state === "finished" && (track.streamable || track.downloadable);
 }
 
+function isTranscodingDetails(detail: unknown): detail is TranscodingDetails {
+  return !!detail["protocol"];
+}
+
 async function downloadTrack(
   track: Track,
   trackNumber: number | undefined,
@@ -451,51 +468,68 @@ async function downloadTrack(
     throw new Error("Track does not satisfy constraints needed to be downloadable");
   }
 
-  let stream: StreamDetails;
+  const downloadDetails: Array<StreamDetails | TranscodingDetails> = [];
+
   if (getConfigValue("download-original-version") && track.downloadable && track.has_downloads_left) {
     const originalDownloadUrl = await soundcloudApi.getOriginalDownloadUrl(track.id);
 
     if (originalDownloadUrl) {
-      stream = {
+      const stream: StreamDetails = {
         url: originalDownloadUrl,
         hls: false,
       };
+
+      downloadDetails.push(stream);
     }
   }
 
-  if (!stream) {
-    const streamDetails = getTranscodingDetails(track);
+  const transcodingDetails = getTranscodingDetails(track);
 
-    if (!streamDetails) {
-      logger.logError("Stream details could not be determined", track);
+  if (transcodingDetails) {
+    downloadDetails.push(...transcodingDetails);
+  }
 
-      throw new Error("Stream details could not be determined");
+  if (downloadDetails.length < 1) {
+    throw new Error("No download details could be determined");
+  }
+
+  for (const downloadDetail of downloadDetails) {
+    let stream: StreamDetails;
+
+    try {
+      if (isTranscodingDetails(downloadDetail)) {
+        logger.logDebug("Get stream details from transcoding details", downloadDetail);
+
+        stream = await soundcloudApi.getStreamDetails(downloadDetail.url);
+      } else {
+        stream = downloadDetail;
+      }
+
+      const downloadData: DownloadData = {
+        trackId: track.id,
+        duration: track.duration,
+        uploadDate: new Date(track.display_date),
+        streamUrl: stream.url,
+        fileExtension: stream.extension,
+        title: track.title,
+        username: track.user.username,
+        userPermalink: track.user.permalink,
+        artworkUrl: track.artwork_url,
+        avatarUrl: track.user.avatar_url,
+        trackNumber,
+        albumName,
+        hls: stream.hls,
+      };
+
+      await handleDownload(downloadData, reportProgress);
+
+      return;
+    } catch {
+      continue;
     }
-
-    stream = await soundcloudApi.getStreamDetails(streamDetails.url);
   }
 
-  if (!stream) {
-    throw new Error("Stream could not be determined");
-  }
-
-  const downloadData: DownloadData = {
-    trackId: track.id,
-    duration: track.duration,
-    uploadDate: new Date(track.display_date),
-    streamUrl: stream.url,
-    fileExtension: stream.extension,
-    title: track.title,
-    username: track.user.username,
-    userPermalink: track.user.permalink,
-    artworkUrl: track.artwork_url,
-    avatarUrl: track.user.avatar_url,
-    trackNumber,
-    albumName,
-    hls: stream.hls,
-  };
-
-  await handleDownload(downloadData, reportProgress);
+  throw new Error("No version of this track could be downloaded");
 }
 
 interface Playlist {
