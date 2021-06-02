@@ -1,3 +1,7 @@
+## 1.10.0
+
+- Fallback to other download versions, if current quality + protocol fails
+
 ## 1.9.9
 
 - Handle some edge cases when extracting metadata
