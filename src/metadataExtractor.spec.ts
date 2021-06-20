@@ -532,34 +532,6 @@ describe("Real world examples", () => {
     expect(extractor.getTitle()).toEqual(correctTitle);
   });
 
-  test.skip("5", () => {
-    const extractor = createExtractor("VIPER w/ loveUnity & KID TRASH [+kidtrashpop]", "JoshuaSageArt");
-
-    const correctArtists: Artist[] = [
-      {
-        name: "JoshuaSageArt",
-        type: ArtistType.Main,
-      },
-      {
-        name: "loveUnity",
-        type: ArtistType.Feature,
-      },
-      {
-        name: "KID TRASH",
-        type: ArtistType.Feature,
-      },
-      {
-        name: "kidtrashpop",
-        type: ArtistType.Producer,
-      },
-    ];
-
-    const correctTitle = "VIPER";
-
-    expect(extractor.getArtists()).toEqual(correctArtists);
-    expect(extractor.getTitle()).toEqual(correctTitle);
-  });
-
   test("6", () => {
     const extractor = createExtractor("outta my head (longlost)", "longlost");
 
@@ -708,7 +680,7 @@ describe("Real world examples", () => {
     expect(extractor.getTitle()).toEqual(correctTitle);
   });
 
-  test("11", () => {
+  test("12", () => {
     const extractor = createExtractor("my emo shorty (northeast lights x mart)", "ultravialit");
 
     const correctArtists: Artist[] = [
@@ -732,7 +704,7 @@ describe("Real world examples", () => {
     expect(extractor.getTitle()).toEqual(correctTitle);
   });
 
-  test("12", () => {
+  test("13", () => {
     const extractor = createExtractor("outer space(+yandere)", "crescent");
 
     const correctArtists: Artist[] = [
@@ -752,7 +724,7 @@ describe("Real world examples", () => {
     expect(extractor.getTitle()).toEqual(correctTitle);
   });
 
-  test("13", () => {
+  test("14", () => {
     const extractor = createExtractor("LY2 w Lil Narnia prod Shyburial", "Yung Scuff");
 
     const correctArtists: Artist[] = [
@@ -776,7 +748,7 @@ describe("Real world examples", () => {
     expect(extractor.getTitle()).toEqual(correctTitle);
   });
 
-  test("14", () => {
+  test("15", () => {
     const extractor = createExtractor("okay ft. palmtri (snowdrive)", "sparr00w (@sprr00w)");
 
     const correctArtists: Artist[] = [
@@ -800,7 +772,7 @@ describe("Real world examples", () => {
     expect(extractor.getTitle()).toEqual(correctTitle);
   });
 
-  test("15", () => {
+  test("16", () => {
     const extractor = createExtractor("they/them anthem (jeremyy, shrinemaiden)", "☆amy crush☆ (@aim_crush)");
 
     const correctArtists: Artist[] = [
@@ -824,7 +796,7 @@ describe("Real world examples", () => {
     expect(extractor.getTitle()).toEqual(correctTitle);
   });
 
-  test("16", () => {
+  test("17", () => {
     const extractor = createExtractor("Liltumblrxo ~ In Your Head [+Shinju]", "icy#9 Productions");
 
     const correctArtists: Artist[] = [
@@ -839,6 +811,290 @@ describe("Real world examples", () => {
     ];
 
     const correctTitle = "In Your Head";
+
+    expect(extractor.getArtists()).toEqual(correctArtists);
+    expect(extractor.getTitle()).toEqual(correctTitle);
+  });
+
+  test("18", () => {
+    const extractor = createExtractor("Хмари", "5 Vymir (П'ятий Вимір)");
+
+    const correctArtists: Artist[] = [
+      {
+        name: "5 Vymir (П'ятий Вимір)",
+        type: ArtistType.Main,
+      },
+    ];
+
+    const correctTitle = "Хмари";
+
+    expect(extractor.getArtists()).toEqual(correctArtists);
+    expect(extractor.getTitle()).toEqual(correctTitle);
+  });
+
+  test("19", () => {
+    const extractor = createExtractor("Zeiten Ändern Dich");
+
+    const correctTitle = "Zeiten Ändern Dich";
+
+    expect(extractor.getTitle()).toEqual(correctTitle);
+  });
+
+  test.skip("20", () => {
+    const extractor = createExtractor("VIPER w/ loveUnity & KID TRASH [+kidtrashpop]", "JoshuaSageArt");
+
+    const correctArtists: Artist[] = [
+      {
+        name: "JoshuaSageArt",
+        type: ArtistType.Main,
+      },
+      {
+        name: "loveUnity",
+        type: ArtistType.Feature,
+      },
+      {
+        name: "KID TRASH",
+        type: ArtistType.Feature,
+      },
+      {
+        name: "kidtrashpop",
+        type: ArtistType.Producer,
+      },
+    ];
+
+    const correctTitle = "VIPER";
+
+    expect(extractor.getArtists()).toEqual(correctArtists);
+    expect(extractor.getTitle()).toEqual(correctTitle);
+  });
+
+  test("21", () => {
+    const extractor = createExtractor("nothings fading (taylor morgan, saint tomorrow)", "kiryano");
+
+    const correctArtists: Artist[] = [
+      {
+        name: "kiryano",
+        type: ArtistType.Main,
+      },
+      {
+        name: "taylor morgan",
+        type: ArtistType.Producer,
+      },
+      {
+        name: "saint tomorrow",
+        type: ArtistType.Producer,
+      },
+    ];
+
+    const correctTitle = "nothings fading";
+
+    expect(extractor.getArtists()).toEqual(correctArtists);
+    expect(extractor.getTitle()).toEqual(correctTitle);
+  });
+
+  test("22", () => {
+    const extractor = createExtractor("worse (+internet joe +nefa)", "fiction57");
+
+    const correctArtists: Artist[] = [
+      {
+        name: "fiction57",
+        type: ArtistType.Main,
+      },
+      {
+        name: "internet joe",
+        type: ArtistType.Feature,
+      },
+      {
+        name: "nefa",
+        type: ArtistType.Feature,
+      },
+    ];
+
+    const correctTitle = "worse";
+
+    expect(extractor.getArtists()).toEqual(correctArtists);
+    expect(extractor.getTitle()).toEqual(correctTitle);
+  });
+
+  test("23", () => {
+    const extractor = createExtractor("blessed feat. funeral (doxia & wifi)", "mental");
+
+    const correctArtists: Artist[] = [
+      {
+        name: "mental",
+        type: ArtistType.Main,
+      },
+      {
+        name: "funeral",
+        type: ArtistType.Feature,
+      },
+      {
+        name: "doxia",
+        type: ArtistType.Producer,
+      },
+      {
+        name: "wifi",
+        type: ArtistType.Producer,
+      },
+    ];
+
+    const correctTitle = "blessed";
+
+    expect(extractor.getArtists()).toEqual(correctArtists);
+    expect(extractor.getTitle()).toEqual(correctTitle);
+  });
+
+  test("24", () => {
+    const extractor = createExtractor("4MCLF (Ft. Flowr) [Prod. MCX]", "icarus444");
+
+    const correctArtists: Artist[] = [
+      {
+        name: "icarus444",
+        type: ArtistType.Main,
+      },
+      {
+        name: "Flowr",
+        type: ArtistType.Feature,
+      },
+      {
+        name: "MCX",
+        type: ArtistType.Producer,
+      },
+    ];
+
+    const correctTitle = "4MCLF";
+
+    expect(extractor.getArtists()).toEqual(correctArtists);
+    expect(extractor.getTitle()).toEqual(correctTitle);
+  });
+
+  test("25", () => {
+    const extractor = createExtractor("blackwinterwells + roxas - stuck! (flood+no bands)", "helix tears");
+
+    const correctArtists: Artist[] = [
+      {
+        name: "blackwinterwells",
+        type: ArtistType.Main,
+      },
+      {
+        name: "roxas",
+        type: ArtistType.Feature,
+      },
+      {
+        name: "flood",
+        type: ArtistType.Producer,
+      },
+      {
+        name: "no bands",
+        type: ArtistType.Producer,
+      },
+    ];
+
+    const correctTitle = "stuck!";
+
+    expect(extractor.getArtists()).toEqual(correctArtists);
+    expect(extractor.getTitle()).toEqual(correctTitle);
+  });
+
+  test("26", () => {
+    const extractor = createExtractor("walk walk walk walk w/ ovrwrld (prod. River)", "vaeo");
+
+    const correctArtists: Artist[] = [
+      {
+        name: "vaeo",
+        type: ArtistType.Main,
+      },
+      {
+        name: "ovrwrld",
+        type: ArtistType.Feature,
+      },
+      {
+        name: "River",
+        type: ArtistType.Producer,
+      },
+    ];
+
+    const correctTitle = "walk walk walk walk";
+
+    expect(extractor.getArtists()).toEqual(correctArtists);
+    expect(extractor.getTitle()).toEqual(correctTitle);
+  });
+
+  test("27", () => {
+    const extractor = createExtractor("DEAD FLOWERS (Ft. Witle$$ & HEA)(Prod. FXCKJAMiE)", "AOM (Afraid of Myself)");
+
+    const correctArtists: Artist[] = [
+      {
+        name: "AOM (Afraid of Myself)",
+        type: ArtistType.Main,
+      },
+      {
+        name: "Witle$$",
+        type: ArtistType.Feature,
+      },
+      {
+        name: "HEA",
+        type: ArtistType.Feature,
+      },
+      {
+        name: "FXCKJAMiE",
+        type: ArtistType.Producer,
+      },
+    ];
+
+    const correctTitle = "DEAD FLOWERS";
+
+    expect(extractor.getArtists()).toEqual(correctArtists);
+    expect(extractor.getTitle()).toEqual(correctTitle);
+  });
+
+  test.skip("28", () => {
+    const extractor = createExtractor("tellmewhy (´｡• ω •｡`) prod wonderr+ninetyniiine", "emotionals");
+
+    const correctArtists: Artist[] = [
+      {
+        name: "emotionals",
+        type: ArtistType.Main,
+      },
+      {
+        name: "wonderr",
+        type: ArtistType.Producer,
+      },
+      {
+        name: "ninetyniiine",
+        type: ArtistType.Producer,
+      },
+    ];
+
+    const correctTitle = "tellmewhy";
+
+    expect(extractor.getArtists()).toEqual(correctArtists);
+    expect(extractor.getTitle()).toEqual(correctTitle);
+  });
+
+  test("29", () => {
+    const extractor = createExtractor("odece & 5v - spazzed ft. ninyy (5v + odece + shinju) vid in desc", "go luxury");
+
+    const correctArtists: Artist[] = [
+      {
+        name: "odece",
+        type: ArtistType.Main,
+      },
+      {
+        name: "5v",
+        type: ArtistType.Feature,
+      },
+      {
+        name: "ninyy",
+        type: ArtistType.Feature,
+      },
+      {
+        name: "shinju",
+        type: ArtistType.Producer,
+      },
+    ];
+
+    const correctTitle = "spazzed";
 
     expect(extractor.getArtists()).toEqual(correctArtists);
     expect(extractor.getTitle()).toEqual(correctTitle);
