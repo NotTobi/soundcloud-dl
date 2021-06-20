@@ -1,3 +1,7 @@
+## 1.11.0
+
+- Allow all unicode letters in metadata/filename
+
 ## 1.10.0
 
 - Fallback to other download versions, if current quality + protocol fails
