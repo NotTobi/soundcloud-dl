@@ -1,4 +1,5 @@
 import escapeStringRegexp from "escape-string-regexp";
+import XRegExp from "xregexp";
 
 export enum ArtistType {
   Main,
@@ -77,7 +78,7 @@ export class MetadataExtractor {
     // this could be problematic, if a name starts with "prod"
     "prod",
   ];
-  static readonly promotions = ["free", "free download", "video in description", "video in desc"];
+  static readonly promotions = ["free download", "video in description", "video in desc", "vid in desc"];
 
   constructor(private title: string, private username: string, private userPermalink?: string) {}
 
@@ -372,7 +373,7 @@ export class MetadataExtractor {
   }
 
   private removeNonAsciiCharacters(input: string) {
-    return input.replace(/[^\x00-\x7F]/g, "");
+    return XRegExp.replace(input, XRegExp("[^\\p{L}\\p{N}\\p{Zs}\x00-\x7F]", "g"), "");
   }
 
   private includes(input: string, seperators: string[]) {
