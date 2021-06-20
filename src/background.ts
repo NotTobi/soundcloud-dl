@@ -17,6 +17,7 @@ import { TagWriter } from "./tagWriter";
 import { Mp4TagWriter } from "./mp4TagWriter";
 import { Parser } from "m3u8-parser";
 import sanitizeFilename from "sanitize-filename";
+import XRegExp from "xregexp";
 
 const soundcloudApi = new SoundCloudApi();
 const logger = Logger.create("Background");
@@ -63,9 +64,11 @@ function sanitize(
     replacement?: string | ((substring: string) => string);
   }
 ) {
-  const sanitized = sanitizeFilename(input, options);
+  let sanitized = sanitizeFilename(input, options);
 
-  return sanitized.replace(/[^\x20-\x7E]+/gu, "").replace(/\s{2,}/, " ");
+  sanitized = XRegExp.replace(input, XRegExp("[^\\p{L}\\p{N}\\p{Zs}\x00-\x7F]", "g"), "");
+
+  return sanitized.replace(/\s{2,}/, " ");
 }
 
 async function handleDownload(data: DownloadData, reportProgress: (progress?: number) => void) {
