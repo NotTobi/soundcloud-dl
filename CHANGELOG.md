@@ -1,3 +1,7 @@
+## 1.11.1
+
+- Minor tweak to the blocking of reposts
+
 ## 1.11.0
 
 - Allow all unicode letters in metadata/filename
