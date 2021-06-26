@@ -77,20 +77,22 @@ function removeReposts(json: string) {
 const originalSendMethod = XMLHttpRequest.prototype.send;
 
 function hijackedSendMethod(body: any) {
-  if (this.__state) {
-    const url = new URL(this.__state.url);
-    const onload = this.onload;
+  try {
+    if (this.__state) {
+      const url = new URL(this.__state.url);
+      const onload = this.onload;
 
-    if (onload && isStreamUrl(url)) {
-      this.onload = function (event) {
-        Object.defineProperty(this, "responseText", {
-          value: removeReposts(this.responseText),
-        });
+      if (onload && isStreamUrl(url)) {
+        this.onload = function (event) {
+          Object.defineProperty(this, "responseText", {
+            value: removeReposts(this.responseText),
+          });
 
-        onload.call(this, event);
-      };
+          onload.call(this, event);
+        };
+      }
     }
-  }
+  } catch {}
 
   return originalSendMethod.call(this, body);
 }
