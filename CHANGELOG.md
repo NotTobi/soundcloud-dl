@@ -1,3 +1,8 @@
+## 1.12.0
+
+- Change how filenames are sanitized
+- Some more metadata extraction tests
+
 ## 1.11.1
 
 - Minor tweak to the blocking of reposts
