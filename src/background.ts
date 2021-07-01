@@ -16,8 +16,7 @@ import { loadConfiguration, storeConfigValue, getConfigValue, registerConfigChan
 import { TagWriter } from "./tagWriters/tagWriter";
 import { Mp4TagWriter } from "./tagWriters/mp4TagWriter";
 import { Parser } from "m3u8-parser";
-import sanitizeFilename from "sanitize-filename";
-import XRegExp from "xregexp";
+import { concatArrayBuffers, sanitizeFilenameForDownload } from "./utils/download";
 
 const soundcloudApi = new SoundCloudApi();
 const logger = Logger.create("Background");
@@ -41,34 +40,6 @@ interface DownloadData {
   trackNumber: number | undefined;
   albumName: string | undefined;
   hls: boolean;
-}
-
-function concatArrayBuffers(buffers: ArrayBuffer[]): ArrayBuffer {
-  const totalLength = buffers.reduce((acc, cur) => acc + cur.byteLength, 0);
-
-  const mergedBuffer = new Uint8Array(totalLength);
-
-  let bufferOffset = 0;
-  for (const buffer of buffers) {
-    mergedBuffer.set(new Uint8Array(buffer), bufferOffset);
-
-    bufferOffset += buffer.byteLength;
-  }
-
-  return mergedBuffer.buffer;
-}
-
-function sanitize(
-  input: string,
-  options?: {
-    replacement?: string | ((substring: string) => string);
-  }
-) {
-  let sanitized = sanitizeFilename(input, options);
-
-  sanitized = XRegExp.replace(input, XRegExp("[^\\p{L}\\p{N}\\p{Zs}\x00-\x7F]", "g"), "");
-
-  return sanitized.replace(/\s{2,}/, " ");
 }
 
 async function handleDownload(data: DownloadData, reportProgress: (progress?: number) => void) {
@@ -106,7 +77,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       titleString = "Unknown";
     }
 
-    const rawFilename = sanitize(`${artistsString} - ${titleString}`);
+    const rawFilename = sanitizeFilenameForDownload(`${artistsString} - ${titleString}`);
 
     let artworkUrl = data.artworkUrl;
 
