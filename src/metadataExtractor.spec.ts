@@ -8,15 +8,15 @@ const braceCombos = [
   ["[", "]"],
 ];
 
-const titleSeperators = MetadataExtractor.titleSeperators;
-const featureSeperators = MetadataExtractor.featureSeperators;
-const combiningFeatureSeperators = MetadataExtractor.combiningFeatureSeperators;
+const titleSeparators = MetadataExtractor.titleSeparators;
+const featureSeparators = MetadataExtractor.featureSeparators;
+const combiningFeatureSeparators = MetadataExtractor.combiningFeatureSeparators;
 const producerIndicators = MetadataExtractor.producerIndicators;
 const remixIndicators = MetadataExtractor.remixIndicators;
 
-describe("seperators", () => {
-  test.each(titleSeperators)("artist1 %s title", (seperator) => {
-    const title = `artist1 ${seperator} title`;
+describe("Different separators", () => {
+  test.each(titleSeparators)("artist1 %s title", (separator) => {
+    const title = `artist1 ${separator} title`;
     const extractor = createExtractor(title);
 
     const correctArtists: Artist[] = [
@@ -31,8 +31,8 @@ describe("seperators", () => {
     expect(extractor.getTitle()).toBe(correctTitle);
   });
 
-  test.each(featureSeperators)("artist1%sartist2 - title", (seperator) => {
-    const title = `artist1${seperator}artist2 - title`;
+  test.each(featureSeparators)("artist1%sartist2 - title", (separator) => {
+    const title = `artist1${separator}artist2 - title`;
     const extractor = createExtractor(title);
 
     const correctArtists: Artist[] = [
@@ -51,8 +51,8 @@ describe("seperators", () => {
     expect(extractor.getTitle()).toBe(correctTitle);
   });
 
-  test.each(featureSeperators)("artist1 - title %sartist2", (seperator) => {
-    const title = `artist1 - title ${seperator}artist2`;
+  test.each(featureSeparators)("artist1 - title %sartist2", (separator) => {
+    const title = `artist1 - title ${separator}artist2`;
     const extractor = createExtractor(title);
 
     const correctArtists: Artist[] = [
@@ -93,9 +93,9 @@ describe("seperators", () => {
         expect(extractor.getTitle()).toBe(correctTitle);
       });
 
-      combiningFeatureSeperators.forEach((combiningSeperator) => {
-        test(`artist1 - title ${opening}${producerIndicator}artist2${combiningSeperator}artist3${closing}`, () => {
-          const title = `artist1 - title ${opening}${producerIndicator}artist2${combiningSeperator}artist3${closing}`;
+      combiningFeatureSeparators.forEach((combiningSeparator) => {
+        test(`artist1 - title ${opening}${producerIndicator}artist2${combiningSeparator}artist3${closing}`, () => {
+          const title = `artist1 - title ${opening}${producerIndicator}artist2${combiningSeparator}artist3${closing}`;
           const extractor = createExtractor(title);
 
           const correctArtists: Artist[] = [
@@ -120,9 +120,9 @@ describe("seperators", () => {
       });
     });
 
-    featureSeperators.forEach((seperator) => {
-      test(`artist1 - title ${opening}${seperator}artist2${closing}`, () => {
-        const title = `artist1 - title ${opening}${seperator}artist2${closing}`;
+    featureSeparators.forEach((separator) => {
+      test(`artist1 - title ${opening}${separator}artist2${closing}`, () => {
+        const title = `artist1 - title ${opening}${separator}artist2${closing}`;
         const extractor = createExtractor(title);
 
         const correctArtists: Artist[] = [
@@ -141,9 +141,9 @@ describe("seperators", () => {
         expect(extractor.getTitle()).toBe(correctTitle);
       });
 
-      combiningFeatureSeperators.forEach((combiningSeperator) => {
-        test(`artist1 - title ${opening}${seperator}artist2${combiningSeperator}artist3${closing}`, () => {
-          const title = `artist1 - title ${opening}${seperator}artist2${combiningSeperator}artist3${closing}`;
+      combiningFeatureSeparators.forEach((combiningSeparator) => {
+        test(`artist1 - title ${opening}${separator}artist2${combiningSeparator}artist3${closing}`, () => {
+          const title = `artist1 - title ${opening}${separator}artist2${combiningSeparator}artist3${closing}`;
           const extractor = createExtractor(title);
 
           const correctArtists: Artist[] = [
@@ -192,9 +192,9 @@ describe("seperators", () => {
         expect(extractor.getTitle()).toBe(correctTitle);
       });
 
-      combiningFeatureSeperators.forEach((combiningSeperator) => {
-        test(`artist1 - title ${opening}artist2${combiningSeperator}artist3${remixIndicator}${closing}`, () => {
-          const title = `artist1 - title ${opening}artist2${combiningSeperator}artist3${remixIndicator}${closing}`;
+      combiningFeatureSeparators.forEach((combiningSeparator) => {
+        test(`artist1 - title ${opening}artist2${combiningSeparator}artist3${remixIndicator}${closing}`, () => {
+          const title = `artist1 - title ${opening}artist2${combiningSeparator}artist3${remixIndicator}${closing}`;
           const extractor = createExtractor(title);
 
           const correctArtists: Artist[] = [

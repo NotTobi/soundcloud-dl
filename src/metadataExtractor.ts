@@ -66,9 +66,9 @@ function stableSort<T>(input: T[], prop: keyof T) {
 }
 
 export class MetadataExtractor {
-  static readonly titleSeperators = ["-", "–", "—", "~"];
-  static readonly featureSeperators = ["featuring", "feat.", "feat", "ft.", "ft", "w/", " w /", " w ", "+"];
-  static readonly combiningFeatureSeperators = [...MetadataExtractor.featureSeperators, ",", "&", " x "];
+  static readonly titleSeparators = ["-", "–", "—", "~"];
+  static readonly featureSeparators = ["featuring", "feat.", "feat", "ft.", "ft", "w/", " w /", " w ", "+"];
+  static readonly combiningFeatureSeparators = [...MetadataExtractor.featureSeparators, ",", "&", " x "];
   static readonly remixIndicators = ["remix", "flip", "bootleg", "mashup", "edit"];
   static readonly producerIndicators = [
     "prod. by",
@@ -87,9 +87,9 @@ export class MetadataExtractor {
 
     let artists: Artist[] = [];
 
-    const titleSplit = this.splitByTitleSeperators(title, true);
+    const titleSplit = this.splitByTitleSeparators(title, true);
 
-    // artists before the title seperator, e.g. >artist< - title
+    // artists before the title separator, e.g. >artist< - title
     artists = artists.concat(
       titleSplit.artistNames.map<Artist>((name, index) => ({
         name,
@@ -97,7 +97,7 @@ export class MetadataExtractor {
       }))
     );
 
-    // producers after the title seperator, e.g. artist - title (prod. >artist<)
+    // producers after the title separator, e.g. artist - title (prod. >artist<)
     // we expect the producer section to be last, if not everthing fails :(
     const producerSplit = this.splitByProducer(titleSplit.title, true);
 
@@ -108,7 +108,7 @@ export class MetadataExtractor {
       }))
     );
 
-    // remixers after the title seperator, e.g. artist - title (>artist< Remix)
+    // remixers after the title separator, e.g. artist - title (>artist< Remix)
     const remixSplit = this.splitByRemix(producerSplit.title, true);
 
     artists = artists.concat(remixSplit.artists);
@@ -123,7 +123,7 @@ export class MetadataExtractor {
       }))
     );
 
-    // features after the title seperator, e.g. artist - title (ft. >artist<)
+    // features after the title separator, e.g. artist - title (ft. >artist<)
     const featureSplit = this.splitByFeatures(remixSplit.title, true);
 
     artists = artists.concat(
@@ -168,7 +168,7 @@ export class MetadataExtractor {
   getTitle(): string {
     let title = this.preprocessTitle(this.title);
 
-    title = this.splitByTitleSeperators(title, false).title;
+    title = this.splitByTitleSeparators(title, false).title;
 
     title = this.splitByProducer(title, false).title;
 
@@ -193,12 +193,12 @@ export class MetadataExtractor {
     return artist;
   }
 
-  private splitByTitleSeperators(title: string, extractArtists: boolean): TitleSplit {
+  private splitByTitleSeparators(title: string, extractArtists: boolean): TitleSplit {
     let artistNames: string[] = [];
 
-    if (this.includes(title, MetadataExtractor.titleSeperators)) {
-      const seperators = this.escapeRegexArray(MetadataExtractor.titleSeperators);
-      const regex = new RegExp(`^((.+)\\s[${seperators}]\\s)(.+)$`);
+    if (this.includes(title, MetadataExtractor.titleSeparators)) {
+      const separators = this.escapeRegexArray(MetadataExtractor.titleSeparators);
+      const regex = new RegExp(`^((.+)\\s[${separators}]\\s)(.+)$`);
 
       const result = regex.exec(title);
 
@@ -222,9 +222,9 @@ export class MetadataExtractor {
   private splitByFeatures(title: string, extractArtists: boolean): TitleSplit {
     let artistNames: string[] = [];
 
-    if (this.includes(title, MetadataExtractor.featureSeperators)) {
-      const seperators = this.escapeRegexArray(MetadataExtractor.featureSeperators).join("|");
-      const regex = new RegExp(`(?:${seperators})([^\\[\\]\\(\\)]+)`, "i");
+    if (this.includes(title, MetadataExtractor.featureSeparators)) {
+      const separators = this.escapeRegexArray(MetadataExtractor.featureSeparators).join("|");
+      const regex = new RegExp(`(?:${separators})([^\\[\\]\\(\\)]+)`, "i");
 
       const result = regex.exec(title);
 
@@ -249,8 +249,8 @@ export class MetadataExtractor {
     let artistNames: string[] = [];
 
     if (this.includes(title, MetadataExtractor.producerIndicators)) {
-      const seperators = this.escapeRegexArray(MetadataExtractor.producerIndicators).join("|");
-      const regex = new RegExp(`(?:${seperators})([^\\[\\]\\(\\)]+)`, "i");
+      const separators = this.escapeRegexArray(MetadataExtractor.producerIndicators).join("|");
+      const regex = new RegExp(`(?:${separators})([^\\[\\]\\(\\)]+)`, "i");
 
       const result = regex.exec(title);
 
@@ -274,8 +274,8 @@ export class MetadataExtractor {
   private splitByUnsafeProducers(title: string, extractArtists: boolean): TitleSplit {
     let artistNames: string[] = [];
 
-    const featureSeperators = this.escapeRegexArray(MetadataExtractor.featureSeperators).join("|");
-    const regex = new RegExp(`[\\(\\[](?!${featureSeperators})(.+)[\\)\\]]`, "i");
+    const featureSeparators = this.escapeRegexArray(MetadataExtractor.featureSeparators).join("|");
+    const regex = new RegExp(`[\\(\\[](?!${featureSeparators})(.+)[\\)\\]]`, "i");
 
     const result = regex.exec(title);
 
@@ -298,8 +298,8 @@ export class MetadataExtractor {
     let artists: Artist[] = [];
 
     if (this.includes(title, MetadataExtractor.remixIndicators)) {
-      const seperators = this.escapeRegexArray(MetadataExtractor.remixIndicators).join("|");
-      const regex = new RegExp(`[\\[\\(](.+)(${seperators})[\\]\\)]`, "i");
+      const separators = this.escapeRegexArray(MetadataExtractor.remixIndicators).join("|");
+      const regex = new RegExp(`[\\[\\(](.+)(${separators})[\\]\\)]`, "i");
 
       const result = regex.exec(title);
 
@@ -329,8 +329,8 @@ export class MetadataExtractor {
   }
 
   private getArtistNames(input: string): string[] {
-    const seperators = this.escapeRegexArray(MetadataExtractor.combiningFeatureSeperators).join("|");
-    const regex = new RegExp(`(.+)\\s?(${seperators})\\s?(.+)`, "i");
+    const separators = this.escapeRegexArray(MetadataExtractor.combiningFeatureSeparators).join("|");
+    const regex = new RegExp(`(.+)\\s?(${separators})\\s?(.+)`, "i");
 
     const names = [];
 
@@ -376,10 +376,10 @@ export class MetadataExtractor {
     return XRegExp.replace(input, XRegExp("[^\\p{L}\\p{N}\\p{Zs}\x00-\x7F]", "g"), "");
   }
 
-  private includes(input: string, seperators: string[]) {
+  private includes(input: string, separators: string[]) {
     const loweredInput = input.toLowerCase();
 
-    return seperators.some((seperator) => loweredInput.includes(seperator));
+    return separators.some((separator) => loweredInput.includes(separator));
   }
 
   private escapeRegexArray(input: string[]) {
