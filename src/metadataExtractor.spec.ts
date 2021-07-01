@@ -1099,4 +1099,44 @@ describe("Real world examples", () => {
     expect(extractor.getArtists()).toEqual(correctArtists);
     expect(extractor.getTitle()).toEqual(correctTitle);
   });
+
+  test("30", () => {
+    const extractor = createExtractor("Graveyard Shift: Ludwig Abraham", "Schauspielhaus Zürich");
+
+    const correctArtists: Artist[] = [
+      {
+        name: "Schauspielhaus Zürich",
+        type: ArtistType.Main,
+      },
+    ];
+
+    const correctTitle = "Graveyard Shift: Ludwig Abraham";
+
+    expect(extractor.getArtists()).toEqual(correctArtists);
+    expect(extractor.getTitle()).toEqual(correctTitle);
+  });
+
+  test.skip("31", () => {
+    const extractor = createExtractor("Too Many Years Ft. PNB Rock - Prod. By J Gramm", "Kodak Black");
+
+    const correctArtists: Artist[] = [
+      {
+        name: "Kodak Black",
+        type: ArtistType.Main,
+      },
+      {
+        name: "PNB Rock",
+        type: ArtistType.Feature,
+      },
+      {
+        name: "J Gramm",
+        type: ArtistType.Producer,
+      },
+    ];
+
+    const correctTitle = "Too Many Years";
+
+    expect(extractor.getArtists()).toEqual(correctArtists);
+    expect(extractor.getTitle()).toEqual(correctTitle);
+  });
 });

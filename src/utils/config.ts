@@ -7,7 +7,7 @@ import {
   getLocalStorage,
   setLocalStorage,
 } from "../compatibilityStubs";
-import sanitizeFilename from "sanitize-filename";
+import { sanitizeFilenameForDownload } from "./download";
 
 const logger = Logger.create("Config");
 let isStorageMonitored = false;
@@ -51,7 +51,7 @@ const config: Config = {
   "oauth-token": { secret: true },
   "client-id": { secret: true },
   "user-id": { secret: true },
-  "default-download-location": { defaultValue: "SoundCloud", sanitize: (value) => sanitizeFilename(value) },
+  "default-download-location": { defaultValue: "SoundCloud", sanitize: (value) => sanitizeFilenameForDownload(value) },
   "download-without-prompt": { defaultValue: true },
   "normalize-track": { sync: true, defaultValue: true },
   "set-metadata": { sync: true, defaultValue: true },

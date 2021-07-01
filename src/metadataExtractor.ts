@@ -67,7 +67,7 @@ function stableSort<T>(input: T[], prop: keyof T) {
 
 export class MetadataExtractor {
   static readonly titleSeparators = ["-", "–", "—", "~"];
-  static readonly featureSeparators = ["featuring", "feat.", "feat", "ft.", "ft", "w/", " w /", " w ", "+"];
+  static readonly featureSeparators = ["featuring", "feat.", "feat", "ft.", " ft ", "w/", " w /", " w ", "+"];
   static readonly combiningFeatureSeparators = [...MetadataExtractor.featureSeparators, ",", "&", " x "];
   static readonly remixIndicators = ["remix", "flip", "bootleg", "mashup", "edit"];
   static readonly producerIndicators = [
