@@ -1,7 +1,7 @@
-import { DomObserver, ObserverEvent } from "./domObserver";
-import { Logger } from "./logger";
+import { DomObserver, ObserverEvent } from "./utils/domObserver";
+import { Logger } from "./utils/logger";
 import { sendMessageToBackend, onMessage, getPathFromExtensionFile } from "./compatibilityStubs";
-import { registerConfigChangeHandler, loadConfiguration, setOnConfigValueChanged, configKeys } from "./config";
+import { registerConfigChangeHandler, loadConfiguration, setOnConfigValueChanged, configKeys } from "./utils/config";
 import { v4 as uuid } from "uuid";
 
 interface DownloadButton {

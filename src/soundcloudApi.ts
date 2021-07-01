@@ -1,4 +1,4 @@
-import { Logger } from "./logger";
+import { Logger } from "./utils/logger";
 
 interface MediaTranscodingFormat {
   protocol: "progressive" | "hls";

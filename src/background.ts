@@ -1,5 +1,5 @@
 import { SoundCloudApi, StreamDetails, Track } from "./soundcloudApi";
-import { Logger } from "./logger";
+import { Logger } from "./utils/logger";
 import {
   onBeforeSendHeaders,
   onBeforeRequest,
@@ -11,10 +11,10 @@ import {
   sendMessageToTab,
 } from "./compatibilityStubs";
 import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
-import { Mp3TagWriter } from "./mp3TagWriter";
-import { loadConfiguration, storeConfigValue, getConfigValue, registerConfigChangeHandler } from "./config";
-import { TagWriter } from "./tagWriter";
-import { Mp4TagWriter } from "./mp4TagWriter";
+import { Mp3TagWriter } from "./tagWriters/mp3TagWriter";
+import { loadConfiguration, storeConfigValue, getConfigValue, registerConfigChangeHandler } from "./utils/config";
+import { TagWriter } from "./tagWriters/tagWriter";
+import { Mp4TagWriter } from "./tagWriters/mp4TagWriter";
 import { Parser } from "m3u8-parser";
 import sanitizeFilename from "sanitize-filename";
 import XRegExp from "xregexp";

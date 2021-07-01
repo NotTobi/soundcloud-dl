@@ -1,5 +1,5 @@
-import { configKeys, loadConfiguration, storeConfigValue, getConfigValue, resetConfig } from "./config";
-import { Logger } from "./logger";
+import { configKeys, loadConfiguration, storeConfigValue, getConfigValue, resetConfig } from "./utils/config";
+import { Logger } from "./utils/logger";
 
 const logger = Logger.create("Settings");
 

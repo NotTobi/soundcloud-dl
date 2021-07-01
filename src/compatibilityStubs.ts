@@ -1,4 +1,4 @@
-import { Logger } from "./logger";
+import { Logger } from "./utils/logger";
 
 const logger = Logger.create("Compatibility Stubs");
 

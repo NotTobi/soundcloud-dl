@@ -6,7 +6,7 @@ import {
   getSyncStorage,
   getLocalStorage,
   setLocalStorage,
-} from "./compatibilityStubs";
+} from "../compatibilityStubs";
 import sanitizeFilename from "sanitize-filename";
 
 const logger = Logger.create("Config");

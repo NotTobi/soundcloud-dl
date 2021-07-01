@@ -1,4 +1,4 @@
-import { Config } from "./config";
+import { Config } from "./utils/config";
 
 function isStreamUrl(url: URL) {
   return url && url.hostname === "api-v2.soundcloud.com" && url.pathname === "/stream";
