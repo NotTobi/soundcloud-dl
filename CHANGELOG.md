@@ -1,3 +1,7 @@
+## 1.13.0
+
+- Add support for setting .wav metadata
+
 ## 1.12,1
 
 - Correctly infer .wav extension from Content-Type
