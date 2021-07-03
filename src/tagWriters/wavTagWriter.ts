@@ -1,68 +1,70 @@
-import ID3Writer from "browser-id3-writer";
 import { TagWriter } from "./tagWriter";
+import { WaveFile } from "wavefile";
 
-export class Mp3TagWriter implements TagWriter {
-  private writer: ID3Writer;
+export class WavTagWriter implements TagWriter {
+  private wav: WaveFile;
 
   constructor(buffer: ArrayBuffer) {
-    this.writer = new ID3Writer(buffer);
+    const uint8Array = new Uint8Array(buffer);
+
+    this.wav = new WaveFile();
+    this.wav.fromBuffer(uint8Array);
   }
 
   setTitle(title: string): void {
     if (!title) throw new Error("Invalid value for title");
 
-    this.writer.setFrame("TIT2", title);
+    this.wav.setTag("INAM", title);
   }
 
   setArtists(artists: string[]): void {
     if (!artists || artists.length < 1) throw new Error("Invalid value for artists");
 
-    this.writer.setFrame("TPE1", artists);
+    this.wav.setTag("IART", artists.join(", "));
   }
 
   setAlbum(album: string): void {
     if (!album) throw new Error("Invalid value for album");
 
-    this.writer.setFrame("TALB", album);
+    this.wav.setTag("IPRD", album);
   }
 
   setComment(comment: string): void {
     if (!comment) throw new Error("Invalid value for comment");
 
-    this.writer.setFrame("COMM", {
-      text: comment,
-      description: "",
-    });
+    this.wav.setTag("ICMT", comment);
   }
 
   setTrackNumber(trackNumber: number): void {
-    // not sure what the highest track number is for ID3, but let's assume it's the max value of short
+    // not sure what the highest track number is for RIFF, but let's assume it's the max value of short
     if (trackNumber < 1 || trackNumber > 32767) throw new Error("Invalid value for trackNumber");
 
-    this.writer.setFrame("TRCK", trackNumber);
+    this.wav.setTag("ITRK", trackNumber.toString());
   }
 
   setYear(year: number): void {
     if (year < 1) throw new Error("Invalud value for year");
 
-    this.writer.setFrame("TYER", year);
+    this.wav.setTag("ICRD", year.toString());
   }
 
   setArtwork(artworkBuffer: ArrayBuffer): void {
     if (!artworkBuffer || artworkBuffer.byteLength < 1) throw new Error("Invalid value for artworkBuffer");
 
-    this.writer.setFrame("APIC", {
-      type: 3,
-      data: artworkBuffer,
-      description: "",
-    });
+    // this.writer.setFrame("APIC", {
+    //   type: 3,
+    //   data: artworkBuffer,
+    //   description: "",
+    // });
   }
 
   getBuffer(): Promise<ArrayBuffer> {
-    this.writer.addTag();
+    this.wav.toRIFF();
 
-    const blob = this.writer.getBlob();
+    const rawBuffer = this.wav.toBuffer();
 
-    return blob.arrayBuffer();
+    console.log({ tags: this.wav.listTags() });
+
+    return Promise.resolve(rawBuffer.buffer);
   }
 }

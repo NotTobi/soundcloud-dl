@@ -36,6 +36,7 @@
     "escape-string-regexp": "^4.0.0",
     "m3u8-parser": "^4.6.0",
     "uuid": "^8.3.0",
+    "wavefile": "^11.0.0",
     "xregexp": "^5.0.2"
   }
 }

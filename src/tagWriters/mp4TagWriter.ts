@@ -1,3 +1,4 @@
+import { concatArrayBuffers } from "../utils/download";
 import { TagWriter } from "./tagWriter";
 
 interface Atom {
@@ -88,7 +89,7 @@ class Mp4 {
     this._insertAtom(atom, this._metadataPath);
   }
 
-  getBlob() {
+  getBuffer() {
     const buffers: ArrayBuffer[] = [];
     let bufferIndex = 0;
 
@@ -174,7 +175,7 @@ class Mp4 {
     this._buffer = null;
     this._atoms = [];
 
-    return new Blob(buffers, { type: "audio/mp4" });
+    return concatArrayBuffers(buffers);
   }
 
   private _insertAtom(atom: Atom, path: string[]) {
@@ -364,58 +365,58 @@ export class Mp4TagWriter implements TagWriter {
     this._mp4.parse();
   }
 
-  setTitle(title: string) {
+  setTitle(title: string): void {
     if (!title) throw new Error("Invalid value for title");
 
     this._mp4.addMetadataAtom("©nam", title);
   }
 
-  setArtists(artists: string[]) {
+  setArtists(artists: string[]): void {
     if (!artists || artists.length < 1) throw new Error("Invalid value for artists");
 
-    const artist = artists.join(", ");
-
-    this._mp4.addMetadataAtom("©ART", artist);
+    this._mp4.addMetadataAtom("©ART", artists.join(", "));
   }
 
-  setAlbum(album: string) {
+  setAlbum(album: string): void {
     if (!album) throw new Error("Invalid value for album");
 
     this._mp4.addMetadataAtom("©alb", album);
   }
 
-  setComment(comment: string) {
+  setComment(comment: string): void {
     if (!comment) throw new Error("Invalid value for comment");
 
     this._mp4.addMetadataAtom("©cmt", comment);
   }
 
-  setTrackNumber(trackNumber: number) {
+  setTrackNumber(trackNumber: number): void {
     // max trackNumber is max of Uint8
     if (trackNumber < 1 || trackNumber > 32767) throw new Error("Invalid value for trackNumber");
 
     this._mp4.addMetadataAtom("trkn", trackNumber);
   }
 
-  setYear(year: number) {
+  setYear(year: number): void {
     if (year < 1) throw new Error("Invalud value for year");
 
     this._mp4.addMetadataAtom("©day", year.toString());
   }
 
-  setArtwork(artworkBuffer: ArrayBuffer) {
+  setArtwork(artworkBuffer: ArrayBuffer): void {
     if (!artworkBuffer || artworkBuffer.byteLength < 1) throw new Error("Invalid value for artworkBuffer");
 
     this._mp4.addMetadataAtom("covr", artworkBuffer);
   }
 
-  setDuration(duration: number) {
+  setDuration(duration: number): void {
     if (duration < 1) throw new Error("Invalid value for duration");
 
     this._mp4.setDuration(duration);
   }
 
-  getBlob() {
-    return this._mp4.getBlob();
+  getBuffer(): Promise<ArrayBuffer> {
+    const buffer = this._mp4.getBuffer();
+
+    return Promise.resolve(buffer);
   }
 }

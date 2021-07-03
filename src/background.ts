@@ -17,6 +17,7 @@ import { TagWriter } from "./tagWriters/tagWriter";
 import { Mp4TagWriter } from "./tagWriters/mp4TagWriter";
 import { Parser } from "m3u8-parser";
 import { concatArrayBuffers, sanitizeFilenameForDownload } from "./utils/download";
+import { WavTagWriter } from "./tagWriters/wavTagWriter";
 
 const soundcloudApi = new SoundCloudApi();
 const logger = Logger.create("Background");
@@ -154,7 +155,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       });
     }
 
-    let downloadBlob: Blob;
+    let downloadBuffer: ArrayBuffer;
 
     if (getConfigValue("set-metadata")) {
       try {
@@ -172,6 +173,8 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
           writer = mp4Writer;
         } else if (data.fileExtension === "mp3") {
           writer = new Mp3TagWriter(streamBuffer);
+        } else if (data.fileExtension === "wav") {
+          writer = new WavTagWriter(streamBuffer);
         }
 
         if (writer) {
@@ -209,20 +212,20 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
             logger.logWarn(`Skipping download of Artwork (TrackId: ${data.trackId})`);
           }
 
-          downloadBlob = writer.getBlob();
+          downloadBuffer = await writer.getBuffer();
         }
       } catch (error) {
         logger.logError(`Failed to set metadata (TrackId: ${data.trackId})`, error);
       }
     }
 
-    if (!downloadBlob) {
-      const options: BlobPropertyBag = {};
+    console.log("buffer transformed", { streamBuffer, downloadBuffer });
 
-      if (contentType) options.type = contentType;
+    const blobOptions: BlobPropertyBag = {};
 
-      downloadBlob = new Blob([streamBuffer], options);
-    }
+    if (contentType) blobOptions.type = contentType;
+
+    const downloadBlob = new Blob([downloadBuffer ?? streamBuffer], blobOptions);
 
     const saveAs = !getConfigValue("download-without-prompt");
     const defaultDownloadLocation = getConfigValue("default-download-location");
