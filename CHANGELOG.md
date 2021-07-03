@@ -1,3 +1,7 @@
+## 1.12,1
+
+- Correctly infer .wav extension from Content-Type
+
 ## 1.12.0
 
 - Change how filenames are sanitized

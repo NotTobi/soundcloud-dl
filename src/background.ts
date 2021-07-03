@@ -143,8 +143,8 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       contentType = streamHeaders.get("content-type");
       let extension = "mp3";
 
-      if (contentType.startsWith("audio/mp4")) extension = "m4a";
-      else if (contentType.startsWith("audio/x-wav")) extension = "wav";
+      if (contentType === "audio/mp4") extension = "m4a";
+      else if (contentType === "audio/x-wav" || contentType === "audio/wav") extension = "wav";
 
       data.fileExtension = extension;
 
