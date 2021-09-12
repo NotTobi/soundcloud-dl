@@ -19,6 +19,12 @@ import { Parser } from "m3u8-parser";
 import { concatArrayBuffers, sanitizeFilenameForDownload } from "./utils/download";
 import { WavTagWriter } from "./tagWriters/wavTagWriter";
 
+class TrackError extends Error {
+  constructor(message: string, trackId: number) {
+    super(`${message} (TrackId: ${trackId})`);
+  }
+}
+
 const soundcloudApi = new SoundCloudApi();
 const logger = Logger.create("Background");
 const manifest = getExtensionManifest();
@@ -136,7 +142,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
     }
 
     if (!streamBuffer) {
-      throw new Error(`Undefined streamBuffer (TrackId: ${data.trackId})`);
+      throw new TrackError("Undefined streamBuffer", data.trackId);
     }
 
     let contentType;
@@ -219,8 +225,6 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       }
     }
 
-    console.log("buffer transformed", { streamBuffer, downloadBuffer });
-
     const blobOptions: BlobPropertyBag = {};
 
     if (contentType) blobOptions.type = contentType;
@@ -253,16 +257,12 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
         saveAs,
       });
 
-      throw new Error(`Failed to download track to file system (TrackId: ${data.trackId})`);
+      throw new TrackError(`Failed to download track to file system`, data.trackId);
     } finally {
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
     }
   } catch (error) {
-    const message = `Unknown error during download (TrackId: ${data.trackId})`;
-
-    logger.logError(message, error);
-
-    throw new Error(message);
+    throw new TrackError("Unknown error during download", data.trackId);
   }
 }
 
@@ -319,8 +319,6 @@ function getTranscodingDetails(details: Track): TranscodingDetails[] | null {
   if (!getConfigValue("download-hq-version")) {
     streams = streams.filter((stream) => stream.quality !== "hq");
   }
-
-  console.log({ streams });
 
   if (streams.some((stream) => stream.quality === "hq")) {
     logger.logInfo("Including high quality streams!");
@@ -442,7 +440,7 @@ async function downloadTrack(
   if (!isValidTrack(track)) {
     logger.logError("Track does not satisfy constraints needed to be downloadable", track);
 
-    throw new Error("Track does not satisfy constraints needed to be downloadable");
+    throw new TrackError("Track does not satisfy constraints needed to be downloadable", track.id);
   }
 
   const downloadDetails: Array<StreamDetails | TranscodingDetails> = [];
@@ -467,7 +465,7 @@ async function downloadTrack(
   }
 
   if (downloadDetails.length < 1) {
-    throw new Error("No download details could be determined");
+    throw new TrackError("No download details could be determined", track.id);
   }
 
   for (const downloadDetail of downloadDetails) {
@@ -502,11 +500,12 @@ async function downloadTrack(
 
       return;
     } catch {
+      // this is to try and download at least one of the available version
       continue;
     }
   }
 
-  throw new Error("No version of this track could be downloaded");
+  throw new TrackError("No version of this track could be downloaded", track.id);
 }
 
 interface Playlist {
@@ -601,7 +600,7 @@ onMessage(async (sender, message: DownloadRequest) => {
 
         logger.logInfo(`Downloading ${isAlbum ? "album" : "playlist"}...`);
 
-        const downloads = [];
+        const downloads: Promise<void>[] = [];
 
         for (let i = 0; i < tracks.length; i++) {
           const trackNumber = treatAsAlbum ? baseTrackNumber + i + 1 : undefined;
@@ -611,7 +610,13 @@ onMessage(async (sender, message: DownloadRequest) => {
           downloads.push(download);
         }
 
-        await Promise.all(downloads);
+        await Promise.all(
+          downloads.map((p) =>
+            p.catch((error) => {
+              logger.logError("Failed to download track of set", error);
+            })
+          )
+        );
 
         currentTrackIdChunk++;
       }
@@ -628,7 +633,7 @@ onMessage(async (sender, message: DownloadRequest) => {
 
       await downloadTrack(track, undefined, undefined, reportTrackProgress);
     } else {
-      throw new Error("Unknown download type");
+      throw new Error(`Unknown download type: ${type}`);
     }
   } catch (error) {
     sendDownloadProgress(tabId, downloadId, undefined, error);
