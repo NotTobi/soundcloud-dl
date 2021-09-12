@@ -1,3 +1,7 @@
+## 1.13.1
+
+- Catch errors of individual tracks when downloading a set
+
 ## 1.13.0
 
 - Add support for setting .wav metadata
