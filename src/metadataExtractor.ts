@@ -68,17 +68,16 @@ function stableSort<T>(input: T[], prop: keyof T) {
 export class MetadataExtractor {
   static readonly titleSeparators = ["-", "–", "—", "~"];
   static readonly featureSeparators = ["featuring", "feat.", "feat", "ft.", " ft ", "w/", " w /", " w ", "+"];
-  static readonly combiningFeatureSeparators = [...MetadataExtractor.featureSeparators, ",", "&", " x "];
+  static readonly combiningFeatureSeparators = [...MetadataExtractor.featureSeparators, ", ", " & ", " x "];
   static readonly remixIndicators = ["remix", "flip", "bootleg", "mashup", "edit"];
   static readonly producerIndicators = [
-    "prod. by",
-    "prod by",
-    "prod.",
-    "p.",
-    // this could be problematic, if a name starts with "prod"
-    "prod",
+    "prod. by ",
+    "prod by ",
+    "prod. ",
+    "p. ",
+    "prod ",
   ];
-  static readonly promotions = ["free download", "video in description", "video in desc", "vid in desc"];
+  static readonly promotions = ["free download", "video in description", "video in desc", "vid in desc", "Original Mix"];
 
   constructor(private title: string, private username: string, private userPermalink?: string) {}
 
