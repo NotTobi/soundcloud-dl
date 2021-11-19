@@ -71,6 +71,38 @@ describe("Different separators", () => {
     expect(extractor.getTitle()).toBe(correctTitle);
   });
 
+  test('Artist separator without spaces', () => {
+    const title = 'Artist&Name - title';
+    const extractor = createExtractor(title);
+
+    const correctArtists: Artist[] = [
+      {
+        name: 'Artist&Name',
+        type: ArtistType.Main,
+      },
+    ];
+    const correctTitle = 'title';
+
+    expect(extractor.getArtists()).toEqual(correctArtists);
+    expect(extractor.getTitle()).toBe(correctTitle);
+  });
+
+  test('Prune "Original Mix"', () => {
+    const title = 'Artist - title (Original Mix)';
+    const extractor = createExtractor(title);
+
+    const correctArtists: Artist[] = [
+      {
+        name: 'Artist',
+        type: ArtistType.Main,
+      },
+    ];
+    const correctTitle = 'title';
+
+    expect(extractor.getArtists()).toEqual(correctArtists);
+    expect(extractor.getTitle()).toBe(correctTitle);
+  });
+
   braceCombos.forEach(([opening, closing]) => {
     producerIndicators.forEach((producerIndicator) => {
       test(`artist1 - title ${opening}${producerIndicator}artist2${closing}`, () => {
