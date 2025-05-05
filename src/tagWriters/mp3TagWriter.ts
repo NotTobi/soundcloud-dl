@@ -48,6 +48,12 @@ export class Mp3TagWriter implements TagWriter {
     this.writer.setFrame("TYER", year);
   }
 
+  setGrouping(grouping: string): void {
+    if (!grouping) throw new Error("Invalid value for grouping");
+
+    this.writer.setFrame("TIT1", grouping);
+  }
+
   setArtwork(artworkBuffer: ArrayBuffer): void {
     if (!artworkBuffer || artworkBuffer.byteLength < 1) throw new Error("Invalid value for artworkBuffer");
 

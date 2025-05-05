@@ -48,6 +48,14 @@ export class WavTagWriter implements TagWriter {
     this.wav.setTag("ICRD", year.toString());
   }
 
+  setGrouping(grouping: string): void {
+    if (!grouping) throw new Error("Invalid value for grouping");
+
+    // 'IGNR' is the standard RIFF INFO tag for Genre, but often repurposed for Grouping
+    // Alternatively, a custom tag could be used if a specific tool expects it.
+    this.wav.setTag("IGNR", grouping);
+  }
+
   setArtwork(artworkBuffer: ArrayBuffer): void {
     if (!artworkBuffer || artworkBuffer.byteLength < 1) throw new Error("Invalid value for artworkBuffer");
 

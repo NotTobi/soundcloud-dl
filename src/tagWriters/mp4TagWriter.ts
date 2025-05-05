@@ -1,5 +1,6 @@
 import { concatArrayBuffers } from "../utils/download";
 import { TagWriter } from "./tagWriter";
+import { Logger, LogLevel } from "../utils/logger";
 
 interface Atom {
   length: number;
@@ -27,10 +28,22 @@ class Mp4 {
   private _buffer: ArrayBuffer | null;
   private _bufferView: DataView | null;
   private _atoms: Atom[] = [];
+  private _loggedErrors: Set<string> = new Set();
+  private _hasValidStructure = false;
+  private _logger: Logger;
+  
+  private _logError(message: string): void {
+    // Only log each unique error message once
+    if (!this._loggedErrors.has(message)) {
+      this._logger.logDebug(`MP4 metadata: ${message}`); // Using logDebug instead of logError
+      this._loggedErrors.add(message);
+    }
+  }
 
   constructor(buffer: ArrayBuffer) {
     this._buffer = buffer;
     this._bufferView = new DataView(buffer);
+    this._logger = Logger.create("MP4TagWriter", LogLevel.Warning); // Only show warnings and errors
   }
 
   parse() {
@@ -51,42 +64,71 @@ class Mp4 {
     }
 
     if (this._atoms.length < 1) throw new Error("Buffer could not be parsed");
+    
+    // Check if this is a valid MP4 file with a 'moov' atom
+    const hasMoov = this._findAtom(this._atoms, ["moov"]) !== null;
+    this._hasValidStructure = hasMoov;
+    
+    if (!hasMoov) {
+      this._logError("File does not contain a 'moov' atom - likely not a valid MP4 file or has a non-standard structure");
+    }
   }
 
   setDuration(duration: number) {
-    const mvhdAtom: Atom = this._findAtom(this._atoms, ["moov", "mvhd"]);
-
-    if (!mvhdAtom) throw new Error("'mvhd' atom could not be found");
-
-    // version(4) + created(4) + modified(4) + timescale(4)
-    const precedingDataLength = 16;
-    this._bufferView.setUint32(mvhdAtom.offset + ATOM_HEAD_LENGTH + precedingDataLength, duration);
+    try {
+      // Skip if not a valid MP4 structure
+      if (!this._hasValidStructure) {
+        this._logError(`Cannot set duration - file doesn't have a valid MP4 structure`);
+        return;
+      }
+      
+      const mvhdAtom: Atom = this._findAtom(this._atoms, ["moov", "mvhd"]);
+  
+      if (!mvhdAtom) throw new Error("'mvhd' atom could not be found");
+  
+      // version(4) + created(4) + modified(4) + timescale(4)
+      const precedingDataLength = 16;
+      this._bufferView.setUint32(mvhdAtom.offset + ATOM_HEAD_LENGTH + precedingDataLength, duration);
+    } catch (error) {
+      this._logError(`Failed to set duration: ${error.message}`);
+    }
   }
 
   addMetadataAtom(name: string, data: ArrayBuffer | string | number) {
-    if (name.length > 4 || name.length < 1) throw new Error(`Unsupported atom name: '${name}'`);
+    try {
+      // Skip if not a valid MP4 structure
+      if (!this._hasValidStructure) {
+        this._logError(`Cannot add ${name} metadata - file doesn't have a valid MP4 structure`);
+        return;
+      }
+    
+      if (name.length > 4 || name.length < 1) throw new Error(`Unsupported atom name: '${name}'`);
 
-    let dataBuffer: ArrayBuffer;
+      let dataBuffer: ArrayBuffer;
 
-    if (data instanceof ArrayBuffer) {
-      dataBuffer = data;
-    } else if (typeof data === "string") {
-      dataBuffer = this._getBufferFromString(data);
-    } else if (typeof data === "number") {
-      dataBuffer = new ArrayBuffer(4);
-      const dataView = new DataView(dataBuffer);
-      dataView.setUint32(0, data);
-    } else {
-      throw new Error(`Unsupported data: '${data}'`);
+      if (data instanceof ArrayBuffer) {
+        dataBuffer = data;
+      } else if (typeof data === "string") {
+        dataBuffer = this._getBufferFromString(data);
+      } else if (typeof data === "number") {
+        dataBuffer = new ArrayBuffer(4);
+        const dataView = new DataView(dataBuffer);
+        dataView.setUint32(0, data);
+      } else {
+        throw new Error(`Unsupported data: '${data}'`);
+      }
+
+      const atom: Atom = {
+        name,
+        length: ATOM_HEADER_LENGTH + dataBuffer.byteLength,
+        data: dataBuffer,
+      };
+
+      this._insertAtom(atom, this._metadataPath);
+    } catch (error) {
+      // Log error but don't throw - this makes the tag writer more resilient
+      this._logError(`Failed to add metadata atom '${name}': ${error.message}`);
     }
-
-    const atom: Atom = {
-      name,
-      length: ATOM_HEADER_LENGTH + dataBuffer.byteLength,
-      data: dataBuffer,
-    };
-
-    this._insertAtom(atom, this._metadataPath);
   }
 
   getBuffer() {
@@ -179,33 +221,77 @@ class Mp4 {
   }
 
   private _insertAtom(atom: Atom, path: string[]) {
-    if (!path) throw new Error("Path can not be empty");
+    try {
+      // First check if the structure is valid
+      if (!this._hasValidStructure) {
+        this._logError("Cannot insert atom: file doesn't have a valid MP4 structure");
+        return;
+      }
+    
+      if (!path) throw new Error("Path can not be empty");
 
-    const parentAtom = this._findAtom(this._atoms, path);
+      const parentAtom = this._findAtom(this._atoms, path);
 
-    if (!parentAtom) throw new Error(`Parent atom at path '${path.join(" > ")}' could not be found`);
+      if (!parentAtom) {
+        // Try to create missing atoms in the path
+        this._createMetadataPath();
+        
+        // Try again after creating the path
+        const newParentAtom = this._findAtom(this._atoms, path);
+        
+        if (!newParentAtom) {
+          // Log the error instead of throwing it
+          this._logError(`Parent atom at path '${path.join(" > ")}' could not be found or created`);
+          return; // Exit without throwing
+        }
+        
+        // Continue with the newly created parent atom
+        if (newParentAtom.children === undefined) {
+          newParentAtom.children = this._readChildAtoms(newParentAtom);
+        }
+    
+        let offset = newParentAtom.offset + ATOM_HEAD_LENGTH;
+    
+        if (newParentAtom.name === "meta") {
+          offset += 4;
+        } else if (newParentAtom.name === "stsd") {
+          offset += 8;
+        }
+    
+        if (newParentAtom.children.length > 0) {
+          const lastChild = newParentAtom.children[newParentAtom.children.length - 1];
+          offset = lastChild.offset + lastChild.length;
+        }
+    
+        atom.offset = offset;
+        newParentAtom.children.push(atom);
+        return;
+      }
 
-    if (parentAtom.children === undefined) {
-      parentAtom.children = this._readChildAtoms(parentAtom);
+      if (parentAtom.children === undefined) {
+        parentAtom.children = this._readChildAtoms(parentAtom);
+      }
+
+      let offset = parentAtom.offset + ATOM_HEAD_LENGTH;
+
+      if (parentAtom.name === "meta") {
+        offset += 4;
+      } else if (parentAtom.name === "stsd") {
+        offset += 8;
+      }
+
+      if (parentAtom.children.length > 0) {
+        const lastChild = parentAtom.children[parentAtom.children.length - 1];
+
+        offset = lastChild.offset + lastChild.length;
+      }
+
+      atom.offset = offset;
+
+      parentAtom.children.push(atom);
+    } catch (error) {
+      this._logError(`Error inserting atom: ${error.message}`);
     }
-
-    let offset = parentAtom.offset + ATOM_HEAD_LENGTH;
-
-    if (parentAtom.name === "meta") {
-      offset += 4;
-    } else if (parentAtom.name === "stsd") {
-      offset += 8;
-    }
-
-    if (parentAtom.children.length > 0) {
-      const lastChild = parentAtom.children[parentAtom.children.length - 1];
-
-      offset = lastChild.offset + lastChild.length;
-    }
-
-    atom.offset = offset;
-
-    parentAtom.children.push(atom);
   }
 
   private _findAtom(atoms: Atom[], path: string[]): Atom | null {
@@ -355,68 +441,209 @@ class Mp4 {
         return 1;
     }
   }
+
+  // Helper method to create the metadata path if it doesn't exist
+  private _createMetadataPath() {
+    try {
+      // First check if the structure is valid
+      if (!this._hasValidStructure) {
+        // Don't even attempt to create paths for invalid MP4 structures
+        return;
+      }
+      
+      // Find the 'moov' atom first
+      let moovAtom = this._findAtom(this._atoms, ["moov"]);
+      
+      if (!moovAtom) {
+        // If we can't find moov, we can't proceed safely
+        this._logError("Could not find 'moov' atom, which is required for metadata");
+        return;
+      }
+      
+      // Ensure moov has children loaded
+      if (moovAtom.children === undefined) {
+        moovAtom.children = this._readChildAtoms(moovAtom);
+      }
+      
+      // Check for udta
+      let udtaAtom = this._findAtom([moovAtom], ["udta"]);
+      if (!udtaAtom) {
+        // Create udta if it doesn't exist
+        const udtaLength = ATOM_HEAD_LENGTH;
+        const udtaOffset = moovAtom.offset + moovAtom.length;
+        
+        udtaAtom = {
+          name: "udta",
+          length: udtaLength,
+          offset: udtaOffset,
+          children: []
+        };
+        
+        moovAtom.children.push(udtaAtom);
+        moovAtom.length += udtaLength;
+      }
+      
+      // Check for meta
+      let metaAtom = this._findAtom([udtaAtom], ["meta"]);
+      if (!metaAtom) {
+        // Create meta if it doesn't exist
+        const metaLength = ATOM_HEAD_LENGTH + 4; // meta has additional 4 bytes
+        const metaOffset = udtaAtom.offset + udtaAtom.length;
+        
+        metaAtom = {
+          name: "meta",
+          length: metaLength,
+          offset: metaOffset,
+          children: []
+        };
+        
+        udtaAtom.children.push(metaAtom);
+        udtaAtom.length += metaLength;
+      }
+      
+      // Check for ilst
+      let ilstAtom = this._findAtom([metaAtom], ["ilst"]);
+      if (!ilstAtom) {
+        // Create ilst if it doesn't exist
+        const ilstLength = ATOM_HEAD_LENGTH;
+        const ilstOffset = metaAtom.offset + metaAtom.length;
+        
+        ilstAtom = {
+          name: "ilst",
+          length: ilstLength,
+          offset: ilstOffset,
+          children: []
+        };
+        
+        metaAtom.children.push(ilstAtom);
+        metaAtom.length += ilstLength;
+      }
+    } catch (error) {
+      this._logError(`Failed to create metadata path: ${error.message}`);
+    }
+  }
 }
 
 export class Mp4TagWriter implements TagWriter {
+  private _originalBuffer: ArrayBuffer;
   private _mp4: Mp4;
+  
+  // Track errors that have already been logged to avoid spamming console
+  private static _loggedErrors: Set<string> = new Set();
+  private static _logger: Logger = Logger.create("MP4TagWriter", LogLevel.Warning);
+  
+  private static _logError(message: string): void {
+    // Only log each unique error message once
+    if (!Mp4TagWriter._loggedErrors.has(message)) {
+      Mp4TagWriter._logger.logDebug(`MP4 metadata: ${message}`); // Use logDebug to keep it quieter
+      Mp4TagWriter._loggedErrors.add(message);
+    }
+  }
 
   constructor(buffer: ArrayBuffer) {
+    this._originalBuffer = buffer; // Store original buffer for fallback
     this._mp4 = new Mp4(buffer);
     this._mp4.parse();
   }
 
   setTitle(title: string): void {
-    if (!title) throw new Error("Invalid value for title");
+    try {
+      if (!title) throw new Error("Invalid value for title");
 
-    this._mp4.addMetadataAtom("©nam", title);
+      this._mp4.addMetadataAtom("©nam", title);
+    } catch (error) {
+      Mp4TagWriter._logError(`Failed to set title: ${error.message}`);
+    }
   }
 
   setArtists(artists: string[]): void {
-    if (!artists || artists.length < 1) throw new Error("Invalid value for artists");
+    try {
+      if (!artists || artists.length < 1) throw new Error("Invalid value for artists");
 
-    this._mp4.addMetadataAtom("©ART", artists.join(", "));
+      this._mp4.addMetadataAtom("©ART", artists.join(", "));
+    } catch (error) {
+      Mp4TagWriter._logError(`Failed to set artists: ${error.message}`);
+    }
   }
 
   setAlbum(album: string): void {
-    if (!album) throw new Error("Invalid value for album");
+    try {
+      if (!album) throw new Error("Invalid value for album");
 
-    this._mp4.addMetadataAtom("©alb", album);
+      this._mp4.addMetadataAtom("©alb", album);
+    } catch (error) {
+      Mp4TagWriter._logError(`Failed to set album: ${error.message}`);
+    }
   }
 
   setComment(comment: string): void {
-    if (!comment) throw new Error("Invalid value for comment");
+    try {
+      if (!comment) throw new Error("Invalid value for comment");
 
-    this._mp4.addMetadataAtom("©cmt", comment);
+      this._mp4.addMetadataAtom("©cmt", comment);
+    } catch (error) {
+      Mp4TagWriter._logError(`Failed to set comment: ${error.message}`);
+    }
   }
 
   setTrackNumber(trackNumber: number): void {
-    // max trackNumber is max of Uint8
-    if (trackNumber < 1 || trackNumber > 32767) throw new Error("Invalid value for trackNumber");
+    try {
+      // max trackNumber is max of Uint8
+      if (trackNumber < 1 || trackNumber > 32767) throw new Error("Invalid value for trackNumber");
 
-    this._mp4.addMetadataAtom("trkn", trackNumber);
+      this._mp4.addMetadataAtom("trkn", trackNumber);
+    } catch (error) {
+      Mp4TagWriter._logError(`Failed to set track number: ${error.message}`);
+    }
   }
 
   setYear(year: number): void {
-    if (year < 1) throw new Error("Invalud value for year");
+    try {
+      if (year < 1) throw new Error("Invalid value for year");
 
-    this._mp4.addMetadataAtom("©day", year.toString());
+      this._mp4.addMetadataAtom("©day", year.toString());
+    } catch (error) {
+      Mp4TagWriter._logError(`Failed to set year: ${error.message}`);
+    }
+  }
+
+  setGrouping(grouping: string): void {
+    try {
+      if (!grouping) throw new Error("Invalid value for grouping");
+
+      this._mp4.addMetadataAtom("©grp", grouping);
+    } catch (error) {
+      Mp4TagWriter._logError(`Failed to set grouping: ${error.message}`);
+    }
   }
 
   setArtwork(artworkBuffer: ArrayBuffer): void {
-    if (!artworkBuffer || artworkBuffer.byteLength < 1) throw new Error("Invalid value for artworkBuffer");
+    try {
+      if (!artworkBuffer || artworkBuffer.byteLength < 1) throw new Error("Invalid value for artworkBuffer");
 
-    this._mp4.addMetadataAtom("covr", artworkBuffer);
+      this._mp4.addMetadataAtom("covr", artworkBuffer);
+    } catch (error) {
+      Mp4TagWriter._logError(`Failed to set artwork: ${error.message}`);
+    }
   }
 
   setDuration(duration: number): void {
-    if (duration < 1) throw new Error("Invalid value for duration");
+    try {
+      if (duration < 1) throw new Error("Invalid value for duration");
 
-    this._mp4.setDuration(duration);
+      this._mp4.setDuration(duration);
+    } catch (error) {
+      Mp4TagWriter._logError(`Failed to set duration: ${error.message}`);
+    }
   }
 
   getBuffer(): Promise<ArrayBuffer> {
-    const buffer = this._mp4.getBuffer();
-
-    return Promise.resolve(buffer);
+    try {
+      const buffer = this._mp4.getBuffer();
+      return Promise.resolve(buffer);
+    } catch (error) {
+      Mp4TagWriter._logError(`Failed to get processed buffer: ${error.message}. Using original buffer as fallback.`);
+      return Promise.resolve(this._originalBuffer);
+    }
   }
 }

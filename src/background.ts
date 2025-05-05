@@ -9,15 +9,20 @@ import {
   openOptionsPage,
   getExtensionManifest,
   sendMessageToTab,
+  searchDownloads,
 } from "./compatibilityStubs";
 import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
 import { Mp3TagWriter } from "./tagWriters/mp3TagWriter";
-import { loadConfiguration, storeConfigValue, getConfigValue, registerConfigChangeHandler } from "./utils/config";
+import { loadConfiguration, storeConfigValue, getConfigValue, registerConfigChangeHandler, loadConfigValue } from "./utils/config";
 import { TagWriter } from "./tagWriters/tagWriter";
 import { Mp4TagWriter } from "./tagWriters/mp4TagWriter";
 import { Parser } from "m3u8-parser";
 import { concatArrayBuffers, sanitizeFilenameForDownload } from "./utils/download";
 import { WavTagWriter } from "./tagWriters/wavTagWriter";
+
+// Message Type Constants
+const DOWNLOAD_SET = "DOWNLOAD_SET";
+const DOWNLOAD = "DOWNLOAD";
 
 class TrackError extends Error {
   constructor(message: string, trackId: number) {
@@ -31,7 +36,100 @@ const manifest = getExtensionManifest();
 
 logger.logInfo("Starting with version: " + manifest.version);
 
-loadConfiguration(true);
+// Load configuration and THEN register message listener
+loadConfiguration(true).then(() => {
+  logger.logInfo("Initial configuration loaded. Registering message listener.");
+  
+  onMessage(async (sender, message: DownloadRequest) => {
+    const tabId = sender.tab.id;
+    const { downloadId, url, type } = message;
+
+    if (!tabId) return;
+
+    try {
+      if (type === DOWNLOAD_SET) {
+        logger.logDebug("Received set download request", { url });
+
+        const set = await soundcloudApi.resolveUrl<Playlist>(url);
+
+        if (!set) {
+          throw new Error(`Failed to resolve SoundCloud URL. Check if you are logged in or if the URL is correct. URL: ${url}`);
+        }
+
+        const isAlbum = set.set_type === "album" || set.set_type === "ep";
+
+        const trackIds = set.tracks.map((i) => i.id);
+
+        const progresses: { [key: number]: number } = {};
+
+        const reportPlaylistProgress = (trackId: number) => (progress?: number) => {
+          if (progress) {
+            progresses[trackId] = progress;
+          }
+
+          const totalProgress = Object.values(progresses).reduce((acc, cur) => acc + cur, 0);
+
+          sendDownloadProgress(tabId, downloadId, totalProgress / trackIds.length);
+        };
+
+        const treatAsAlbum = isAlbum && trackIds.length > 1;
+        const albumName = treatAsAlbum ? set.title : undefined;
+
+        const trackIdChunkSize = 10;
+        const trackIdChunks = chunkArray(trackIds, trackIdChunkSize);
+
+        let currentTrackIdChunk = 0;
+        for (const trackIdChunk of trackIdChunks) {
+          const baseTrackNumber = currentTrackIdChunk * trackIdChunkSize;
+
+          const keyedTracks = await soundcloudApi.getTracks(trackIdChunk);
+          const tracks = Object.values(keyedTracks).reverse();
+
+          logger.logInfo(`Downloading ${isAlbum ? "album" : "playlist"}...`);
+
+          const downloads: Promise<void>[] = [];
+
+          for (let i = 0; i < tracks.length; i++) {
+            const trackNumber = treatAsAlbum ? baseTrackNumber + i + 1 : undefined;
+            const playlistName = !isAlbum ? set.title : undefined;
+
+            const download = downloadTrack(tracks[i], trackNumber, albumName, playlistName, reportPlaylistProgress(tracks[i].id));
+
+            downloads.push(download);
+          }
+
+          await Promise.all(
+            downloads.map((p) =>
+              p.catch((error) => {
+                logger.logError("Failed to download track of set", error);
+              })
+            )
+          );
+
+          currentTrackIdChunk++;
+        }
+
+        logger.logInfo(`Downloaded ${isAlbum ? "album" : "playlist"}!`);
+      } else if (type === DOWNLOAD) {
+        logger.logDebug("Received track download request", { url });
+
+        const track = await soundcloudApi.resolveUrl<Track>(url);
+
+        const reportTrackProgress = (progress?: number) => {
+          sendDownloadProgress(tabId, downloadId, progress);
+        };
+
+        await downloadTrack(track, undefined, undefined, undefined, reportTrackProgress);
+      } else {
+        throw new Error(`Unknown download type: ${type}`);
+      }
+    } catch (error) {
+      sendDownloadProgress(tabId, downloadId, undefined, error);
+
+      logger.logError("Download failed unexpectedly", error);
+    }
+  });
+});
 
 interface DownloadData {
   trackId: number;
@@ -46,13 +144,17 @@ interface DownloadData {
   fileExtension?: string;
   trackNumber: number | undefined;
   albumName: string | undefined;
+  playlistName?: string;
   hls: boolean;
 }
 
 async function handleDownload(data: DownloadData, reportProgress: (progress?: number) => void) {
+  // --- DEBUG START: Moved to very beginning ---
+  logger.logDebug(`[handleDownload ENTRY] Processing TrackId: ${data.trackId}. History check comes later.`);
+  // --- DEBUG END ---
   // todo: one big try-catch is not really good error handling :/
   try {
-    logger.logInfo(`Initiating download of ${data.trackId} with payload`, { payload: data });
+    logger.logInfo(`Initiating download check for ${data.trackId} with payload`, { payload: data });
 
     let artistsString = data.username;
     let titleString = data.title;
@@ -84,7 +186,118 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       titleString = "Unknown";
     }
 
-    const rawFilename = sanitizeFilenameForDownload(`${artistsString} - ${titleString}`);
+    const rawFilenameBase = sanitizeFilenameForDownload(`${artistsString} - ${titleString}`);
+
+    // --- START Calculate potential final filename ---
+    const saveAs = !getConfigValue("download-without-prompt");
+    const defaultDownloadLocation = getConfigValue("default-download-location");
+    // We need a potential extension here to check; assume mp3 as most common or use provided if available
+    const checkExtension = data.fileExtension || 'mp3'; 
+    let potentialDownloadFilename = rawFilenameBase + "." + checkExtension;
+
+    if (!saveAs && defaultDownloadLocation) {
+      if (data.playlistName) {
+        const sanitizedPlaylistName = sanitizeFilenameForDownload(data.playlistName);
+        potentialDownloadFilename = defaultDownloadLocation + "/" + sanitizedPlaylistName + "/" + potentialDownloadFilename;
+      } else {
+        potentialDownloadFilename = defaultDownloadLocation + "/" + potentialDownloadFilename;
+      }
+    }
+    // --- END Calculate potential final filename ---
+
+    // --- Log values just before the check ---
+    const shouldDownloadWithoutPrompt = getConfigValue("download-without-prompt");
+    const shouldSkipExisting = getConfigValue("skipExistingFiles");
+    logger.logDebug(`Skip check condition values: downloadWithoutPrompt=${shouldDownloadWithoutPrompt}, skipExistingFiles=${shouldSkipExisting}`);
+    // --- End log ---
+
+    // --- START Skip existing file check ---
+    if (shouldSkipExisting) {
+      try {
+        // Construct path prefix (handling playlist/default location)
+        let pathPrefix = "";
+        if (defaultDownloadLocation) {
+          if (data.playlistName) {
+            const sanitizedPlaylistName = sanitizeFilenameForDownload(data.playlistName);
+            pathPrefix = defaultDownloadLocation + "/" + sanitizedPlaylistName + "/";
+          } else {
+            pathPrefix = defaultDownloadLocation + "/";
+          }
+        }
+
+        // Store the track ID in a dedicated download history tracker to prevent duplicate downloads
+        // even across browser sessions
+        const trackIdKey = `track-${data.trackId}`;
+        const trackDownloadHistory = await loadConfigValue("track-download-history");
+        
+        // --- DEBUG START ---
+        logger.logDebug(`[handleDownload] Checking history for key: ${trackIdKey}. Current history object:`, trackDownloadHistory);
+        // --- DEBUG END ---
+        
+        // Check if we've already downloaded this specific track ID
+        if (trackDownloadHistory && trackDownloadHistory[trackIdKey]) {
+          const previousDownload = trackDownloadHistory[trackIdKey];
+          logger.logInfo(`Skipping download for TrackId: ${data.trackId}. Previously downloaded as: ${previousDownload.filename} at ${new Date(previousDownload.timestamp).toLocaleString()}`);
+          reportProgress(101); // Report as complete immediately to prevent UI hanging
+          return; // Skip the rest of the download process
+        }
+        
+        // Multi-strategy file existence checks
+        
+        // Strategy 1: Exact filename match with known extension
+        const specificFilename = `${pathPrefix}${rawFilenameBase}.${data.fileExtension || 'mp3'}`;
+        logger.logDebug(`[Strategy 1] Checking for specific file: ${specificFilename}`);
+        const exactQuery = { filename: specificFilename };
+        const exactMatches = await searchDownloads(exactQuery);
+        logger.logDebug(`[Strategy 1] Found ${exactMatches.length} exact matches in download history`);
+        
+        // Strategy 2: Regex pattern to match any extension
+        const escapedPathPrefix = pathPrefix.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const escapedRawFilenameBase = rawFilenameBase.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const regexQuery = { filenameRegex: `^${escapedPathPrefix}${escapedRawFilenameBase}\..+$` };
+        logger.logDebug(`[Strategy 2] Checking with regex pattern: ${regexQuery.filenameRegex}`);
+        const regexMatches = exactMatches.length === 0 ? await searchDownloads(regexQuery) : [];
+        logger.logDebug(`[Strategy 2] Found ${regexMatches.length} regex matches in download history`);
+        
+        // Strategy 3: Check by track title and artist in filename, ignoring exact path
+        const filenameWithoutPathRegex = `${escapedRawFilenameBase}\..+$`;
+        const titleArtistQuery = { filenameRegex: filenameWithoutPathRegex };
+        logger.logDebug(`[Strategy 3] Checking with title/artist only: ${titleArtistQuery.filenameRegex}`);
+        const titleArtistMatches = exactMatches.length === 0 && regexMatches.length === 0 ? 
+                                  await searchDownloads(titleArtistQuery) : [];
+        logger.logDebug(`[Strategy 3] Found ${titleArtistMatches.length} title/artist matches in download history`);
+        
+        // Combine all matches and filter for completed downloads
+        const allMatches = [...exactMatches, ...regexMatches, ...titleArtistMatches];
+        const completedDownloads = allMatches.filter(d => d.state === 'complete');
+        
+        if (completedDownloads.length > 0) {
+          // Log details about ALL matches found for better debugging
+          completedDownloads.forEach((download, index) => {
+            logger.logDebug(`Match ${index + 1}: ${download.filename} (State: ${download.state}, ID: ${download.id})`);
+          });
+          
+          // Found an existing download - skip this one
+          logger.logInfo(`Skipping download for TrackId: ${data.trackId}. File already exists in download history: ${completedDownloads[0].filename}`);
+          
+          // Store this track in our download history
+          trackDownloadHistory[trackIdKey] = {
+            filename: completedDownloads[0].filename,
+            timestamp: Date.now()
+          };
+          await storeConfigValue("track-download-history", trackDownloadHistory);
+          
+          reportProgress(101); // Report as complete immediately to prevent UI hanging
+          return; // Skip the rest of the download process
+        } else {
+          logger.logDebug(`No matching downloads found for TrackId: ${data.trackId} with filename base "${rawFilenameBase}"`);
+        }
+      } catch (error) {
+        logger.logError(`Error checking for existing download (TrackId: ${data.trackId})`, error);
+        // Continue with download despite check error
+      }
+    }
+    // --- END Skip existing file check ---
 
     let artworkUrl = data.artworkUrl;
 
@@ -93,7 +306,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       artworkUrl = data.avatarUrl;
     }
 
-    logger.logInfo(`Starting download of '${rawFilename}' (TrackId: ${data.trackId})...`);
+    logger.logInfo(`Starting download of '${rawFilenameBase}' (TrackId: ${data.trackId})...`);
 
     let streamBuffer: ArrayBuffer;
     let streamHeaders: Headers;
@@ -117,6 +330,16 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
           const segment = await segmentReq.arrayBuffer();
 
           segments.push(segment);
+
+          // --- Rate Limiting Start ---
+          const enableRateLimit = getConfigValue("enable-hls-rate-limiting" as any) as boolean;
+          const delayMs = getConfigValue("hls-rate-limit-delay-ms" as any) as number;
+
+          if (enableRateLimit && delayMs > 0) {
+            logger.logDebug(`Rate limiting HLS download, delaying for ${delayMs}ms`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+          }
+          // --- Rate Limiting End ---
 
           const progress = Math.round((i / segmentUrls.length) * 100);
 
@@ -184,44 +407,85 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
         }
 
         if (writer) {
-          writer.setTitle(titleString);
-          // todo: sanitize album as well
-          writer.setAlbum(data.albumName ?? titleString);
-          writer.setArtists([artistsString]);
+          // Wrap individual tag setting in try-catch blocks
+          try {
+            writer.setTitle(titleString);
+          } catch (e) { logger.logError(`Failed to set title for track (TrackId: ${data.trackId})`, e); }
+          
+          try {
+            // todo: sanitize album as well
+            writer.setAlbum(data.albumName ?? titleString);
+          } catch (e) { logger.logError(`Failed to set album for track (TrackId: ${data.trackId})`, e); }
 
-          writer.setComment("https://github.com/NotTobi/soundcloud-dl");
+          try {
+            writer.setArtists([artistsString]);
+          } catch (e) { logger.logError(`Failed to set artists for track (TrackId: ${data.trackId})`, e); }
 
-          if (data.trackNumber > 0) {
-            writer.setTrackNumber(data.trackNumber);
+          // Set grouping if playlistName is available
+          if (data.playlistName) {
+            try {
+              writer.setGrouping(data.playlistName);
+            } catch (e) { logger.logError(`Failed to set grouping for track (TrackId: ${data.trackId})`, e); }
           }
 
-          const releaseYear = data.uploadDate.getFullYear();
+          try {
+            writer.setComment("https://github.com/NotTobi/soundcloud-dl");
+          } catch (e) { logger.logError(`Failed to set comment for track (TrackId: ${data.trackId})`, e); }
 
-          writer.setYear(releaseYear);
+          if (data.trackNumber > 0) {
+            try {
+              writer.setTrackNumber(data.trackNumber);
+            } catch (e) { logger.logError(`Failed to set track number for track (TrackId: ${data.trackId})`, e); }
+          }
+
+          try {
+            const releaseYear = data.uploadDate.getFullYear();
+            writer.setYear(releaseYear);
+          } catch (e) { logger.logError(`Failed to set year for track (TrackId: ${data.trackId})`, e); }
 
           if (artworkUrl) {
-            const sizeOptions = ["original", "t500x500", "large"];
-            let artworkBuffer = null;
-            let curArtworkUrl;
+            try {
+                const sizeOptions = ["original", "t500x500", "large"];
+                let artworkBuffer: ArrayBuffer | null = null;
 
-            do {
-              const curSizeOption = sizeOptions.shift();
-              curArtworkUrl = artworkUrl.replace("-large.", `-${curSizeOption}.`);
+                const artworkPromises = sizeOptions.map(size => {
+                const curArtworkUrl = artworkUrl.replace("-large.", `-${size}.`);
+                return soundcloudApi.downloadArtwork(curArtworkUrl);
+                });
 
-              artworkBuffer = await soundcloudApi.downloadArtwork(curArtworkUrl);
-            } while (artworkBuffer === null && sizeOptions.length > 0);
+                const results = await Promise.allSettled(artworkPromises);
 
-            if (artworkBuffer) {
-              writer.setArtwork(artworkBuffer);
-            }
+                for (const result of results) {
+                if (result.status === 'fulfilled' && result.value) {
+                    artworkBuffer = result.value;
+                    break; // Use the first successfully downloaded artwork
+                }
+                }
+
+                if (artworkBuffer) {
+                    writer.setArtwork(artworkBuffer);
+                } else {
+                    logger.logWarn(`Failed to download any artwork version for TrackId: ${data.trackId}`);
+                }
+            } catch (e) { logger.logError(`Failed to set artwork for track (TrackId: ${data.trackId})`, e); }
           } else {
             logger.logWarn(`Skipping download of Artwork (TrackId: ${data.trackId})`);
           }
 
-          downloadBuffer = await writer.getBuffer();
+          // Get buffer after attempting all tags
+          try {
+            downloadBuffer = await writer.getBuffer();
+          } catch (e) { 
+              logger.logError(`Failed to get final buffer after writing tags (TrackId: ${data.trackId})`, e); 
+              // Fallback to original buffer to ensure download can continue
+              logger.logInfo(`Using original buffer without metadata for track (TrackId: ${data.trackId})`);
+              downloadBuffer = streamBuffer;
+          }
+
         }
       } catch (error) {
-        logger.logError(`Failed to set metadata (TrackId: ${data.trackId})`, error);
+        // This top-level catch is now less likely to be hit for simple tag errors
+        logger.logError(`Unexpected error during metadata processing block (TrackId: ${data.trackId})`, error);
       }
     }
 
@@ -231,12 +495,15 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
     const downloadBlob = new Blob([downloadBuffer ?? streamBuffer], blobOptions);
 
-    const saveAs = !getConfigValue("download-without-prompt");
-    const defaultDownloadLocation = getConfigValue("default-download-location");
-    let downloadFilename = rawFilename + "." + data.fileExtension;
-
+    // Use the already calculated filename (potentialDownloadFilename was just for the check)
+    let downloadFilename = rawFilenameBase + "." + data.fileExtension;
     if (!saveAs && defaultDownloadLocation) {
-      downloadFilename = defaultDownloadLocation + "/" + downloadFilename;
+      if (data.playlistName) {
+        const sanitizedPlaylistName = sanitizeFilenameForDownload(data.playlistName);
+        downloadFilename = defaultDownloadLocation + "/" + sanitizedPlaylistName + "/" + downloadFilename;
+      } else {
+        downloadFilename = defaultDownloadLocation + "/" + downloadFilename;
+      }
     }
 
     logger.logInfo(`Downloading track as '${downloadFilename}' (TrackId: ${data.trackId})...`);
@@ -248,7 +515,23 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
       await downloadToFile(downloadUrl, downloadFilename, saveAs);
 
-      logger.logInfo(`Successfully downloaded '${rawFilename}' (TrackId: ${data.trackId})!`);
+      logger.logInfo(`Successfully downloaded '${rawFilenameBase}' (TrackId: ${data.trackId})!`);
+      
+      // After successful download, record this track ID in our history
+      if (shouldSkipExisting) {
+        try {
+          const trackIdKey = `track-${data.trackId}`;
+          const trackDownloadHistory = await getConfigValue("track-download-history") || {};
+          trackDownloadHistory[trackIdKey] = {
+            filename: downloadFilename,
+            timestamp: Date.now()
+          };
+          await storeConfigValue("track-download-history", trackDownloadHistory);
+          logger.logDebug(`Added TrackId: ${data.trackId} to download history tracker`);
+        } catch (error) {
+          logger.logError(`Failed to update download history for TrackId: ${data.trackId}`, error);
+        }
+      }
 
       reportProgress(101);
     } catch (error) {
@@ -435,6 +718,7 @@ async function downloadTrack(
   track: Track,
   trackNumber: number | undefined,
   albumName: string | undefined,
+  playlistName: string | undefined,
   reportProgress: (progress?: number) => void
 ) {
   if (!isValidTrack(track)) {
@@ -493,6 +777,7 @@ async function downloadTrack(
         avatarUrl: track.user.avatar_url,
         trackNumber,
         albumName,
+        playlistName,
         hls: stream.hls,
       };
 
@@ -558,94 +843,9 @@ function chunkArray<T>(array: T[], chunkSize: number) {
   return chunks;
 }
 
-onMessage(async (sender, message: DownloadRequest) => {
-  const tabId = sender.tab.id;
-  const { downloadId, url, type } = message;
-
-  if (!tabId) return;
-
-  try {
-    if (type === "DOWNLOAD_SET") {
-      logger.logDebug("Received set download request", { url });
-
-      const set = await soundcloudApi.resolveUrl<Playlist>(url);
-      const isAlbum = set.set_type === "album" || set.set_type === "ep";
-
-      const trackIds = set.tracks.map((i) => i.id);
-
-      const progresses: { [key: number]: number } = {};
-
-      const reportPlaylistProgress = (trackId: number) => (progress?: number) => {
-        if (progress) {
-          progresses[trackId] = progress;
-        }
-
-        const totalProgress = Object.values(progresses).reduce((acc, cur) => acc + cur, 0);
-
-        sendDownloadProgress(tabId, downloadId, totalProgress / trackIds.length);
-      };
-
-      const treatAsAlbum = isAlbum && trackIds.length > 1;
-      const albumName = treatAsAlbum ? set.title : undefined;
-
-      const trackIdChunkSize = 10;
-      const trackIdChunks = chunkArray(trackIds, trackIdChunkSize);
-
-      let currentTrackIdChunk = 0;
-      for (const trackIdChunk of trackIdChunks) {
-        const baseTrackNumber = currentTrackIdChunk * trackIdChunkSize;
-
-        const keyedTracks = await soundcloudApi.getTracks(trackIdChunk);
-        const tracks = Object.values(keyedTracks).reverse();
-
-        logger.logInfo(`Downloading ${isAlbum ? "album" : "playlist"}...`);
-
-        const downloads: Promise<void>[] = [];
-
-        for (let i = 0; i < tracks.length; i++) {
-          const trackNumber = treatAsAlbum ? baseTrackNumber + i + 1 : undefined;
-
-          const download = downloadTrack(tracks[i], trackNumber, albumName, reportPlaylistProgress(tracks[i].id));
-
-          downloads.push(download);
-        }
-
-        await Promise.all(
-          downloads.map((p) =>
-            p.catch((error) => {
-              logger.logError("Failed to download track of set", error);
-            })
-          )
-        );
-
-        currentTrackIdChunk++;
-      }
-
-      logger.logInfo(`Downloaded ${isAlbum ? "album" : "playlist"}!`);
-    } else if (type === "DOWNLOAD") {
-      logger.logDebug("Received track download request", { url });
-
-      const track = await soundcloudApi.resolveUrl<Track>(url);
-
-      const reportTrackProgress = (progress?: number) => {
-        sendDownloadProgress(tabId, downloadId, progress);
-      };
-
-      await downloadTrack(track, undefined, undefined, reportTrackProgress);
-    } else {
-      throw new Error(`Unknown download type: ${type}`);
-    }
-  } catch (error) {
-    sendDownloadProgress(tabId, downloadId, undefined, error);
-
-    logger.logError("Download failed unexpectedly", error);
-  }
-});
-
 onPageActionClicked(() => {
   openOptionsPage();
 });
-
 const oauthTokenChanged = async (token: string) => {
   if (!token) return;
 
@@ -673,3 +873,4 @@ const oauthTokenChanged = async (token: string) => {
 };
 
 registerConfigChangeHandler("oauth-token", oauthTokenChanged);
+

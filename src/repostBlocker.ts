@@ -83,7 +83,7 @@ function hijackedSendMethod(body: any) {
       const onload = this.onload;
 
       if (onload && isStreamUrl(url)) {
-        this.onload = function (event) {
+        this.onload = function (event: ProgressEvent) {
           Object.defineProperty(this, "responseText", {
             value: removeReposts(this.responseText),
           });

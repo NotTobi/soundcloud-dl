@@ -4,29 +4,48 @@ trap "exit 1" ERR
 
 # build package
 
-yarn install
+# Use npm instead of yarn
+echo "Running npm install..."
+npm install
 
-yarn test
+echo "Running npm test..."
+npm test
 
-yarn run build
+# Run webpack directly, not the npm build script
+echo "Running webpack..."
+webpack # Outputs cleaned js to dist/js
+
+# Create other needed dist directories if they don't exist (icons dir)
+echo "Ensuring dist directories exist..."
+mkdir -p dist/icons
+
+# Copy static assets into dist
+echo "Copying static assets..."
+cp src/settings.html dist/
+cp -r src/icons/* dist/icons/
 
 # bundle for different browsers
-
-cd dist
+# Operate from the root directory initially
 
 # bundle for Chrome
-
-jq -s ".[0] * .[1]" "manifest_original.json" "manifest_chrome.json" > "manifest.json"
-
-zip -r "SoundCloud-Downloader-Chrome.zip" . -x "manifest_*" "*.zip"
+echo "Bundling Chrome extension..."
+jq -s ".[0] * .[1]" "src/manifests/manifest_original.json" "src/manifests/manifest_chrome.json" > "dist/manifest.json" # Output manifest into dist
+# Zip specifically required files from dist
+cd dist # Now CD into dist to make zip paths relative inside the archive
+zip -r "SoundCloud-Downloader-Chrome.zip" manifest.json js/ icons/ settings.html -x "*.zip" # Explicitly list items to zip
+cd .. # Go back to root
 
 # bundle for Firefox
-
-jq -s ".[0] * .[1]" "manifest_original.json" "manifest_firefox.json" > "manifest.json"
-
-zip -r "SoundCloud-Downloader-Firefox.zip" . -x "manifest_*" "*.zip"
+echo "Bundling Firefox extension..."
+jq -s ".[0] * .[1]" "src/manifests/manifest_original.json" "src/manifests/manifest_firefox.json" > "dist/manifest.json" # Output manifest into dist
+# Zip specifically required files from dist
+cd dist # CD into dist again
+zip -r "SoundCloud-Downloader-Firefox.zip" manifest.json js/ icons/ settings.html -x "*.zip" # Explicitly list items to zip
+cd .. # Go back to root
 
 # archive source code for firefox review process
-cd ..
-
+echo "Archiving source code..."
+mkdir -p dist # Ensure dist exists before archiving source
 git archive --format zip --output "dist/SoundCloud-Downloader-Source-Code.zip" master
+
+echo "Build process complete."

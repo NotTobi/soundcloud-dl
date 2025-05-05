@@ -2,7 +2,7 @@ import { DomObserver, ObserverEvent } from "./utils/domObserver";
 import { Logger } from "./utils/logger";
 import { sendMessageToBackend, onMessage, getPathFromExtensionFile } from "./compatibilityStubs";
 import { registerConfigChangeHandler, loadConfiguration, setOnConfigValueChanged, configKeys } from "./utils/config";
-import { v4 as uuid } from "uuid";
+import { v5 as uuid } from "uuid";
 
 interface DownloadButton {
   elem: HTMLButtonElement;
@@ -96,7 +96,7 @@ const addDownloadButtonToParent = (parent: Node & ParentNode, onClicked: OnButto
 
   const button = createDownloadButton(small);
   button.onclick = async () => {
-    const downloadId = uuid();
+    const downloadId: string = crypto.randomUUID();
 
     downloadButtons[downloadId] = {
       elem: button,

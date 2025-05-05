@@ -29,12 +29,17 @@ export interface Config {
   "user-id": ConfigValue<number>;
   "default-download-location": ConfigValue<string>;
   "download-without-prompt": ConfigValue<boolean>;
+  "downloadRateLimit": ConfigValue<number>;
+  "skipExistingFiles": ConfigValue<boolean>;
   "normalize-track": ConfigValue<boolean>;
   "set-metadata": ConfigValue<boolean>;
   "block-reposts": ConfigValue<boolean>;
   "block-playlists": ConfigValue<boolean>;
   "include-producers": ConfigValue<boolean>;
   "followed-artists": ConfigValue<number[]>;
+  "enable-hls-rate-limiting": ConfigValue<boolean>;
+  "hls-rate-limit-delay-ms": ConfigValue<number>;
+  "track-download-history": ConfigValue<Record<string, { filename: string; timestamp: number }>>;
 }
 
 type OnConfigValueChangedType = (key: keyof Config, value: any) => void;
@@ -53,12 +58,17 @@ const config: Config = {
   "user-id": { secret: true },
   "default-download-location": { defaultValue: "SoundCloud", sanitize: (value) => sanitizeFilenameForDownload(value) },
   "download-without-prompt": { defaultValue: true },
+  "downloadRateLimit": { defaultValue: 5 },
+  "skipExistingFiles": { defaultValue: true, sync: true },
   "normalize-track": { sync: true, defaultValue: true },
   "set-metadata": { sync: true, defaultValue: true },
   "block-reposts": { sync: true, defaultValue: false },
   "block-playlists": { sync: true, defaultValue: false },
   "include-producers": { sync: true, defaultValue: true },
   "followed-artists": { defaultValue: [] },
+  "enable-hls-rate-limiting": { sync: true, defaultValue: true },
+  "hls-rate-limit-delay-ms": { sync: true, defaultValue: 100 },
+  "track-download-history": { defaultValue: {} },
 };
 
 export const configKeys = Object.keys(config) as Array<keyof Config>;
@@ -169,6 +179,12 @@ const handleStorageChanged = (changes: { [key: string]: StorageChange }, areanam
     const entry = config[key];
 
     if (entry.value === newValue) continue;
+
+    // --- DEBUG START ---
+    if (key === "track-download-history") {
+      logger.logDebug(`[handleStorageChanged] Received update for ${key}. New value:`, newValue);
+    }
+    // --- DEBUG END ---
 
     if (areaname !== "local") logger.logInfo("Remote updating", key, "to", getDisplayValue(newValue, entry));
 

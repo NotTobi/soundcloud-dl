@@ -215,3 +215,18 @@ export const getPathFromExtensionFile = (relativePath: string) => {
     return null;
   }
 };
+
+export const searchDownloads = (query: any): Promise<any[]> => {
+  if (typeof browser !== "undefined") {
+    // Firefox returns a promise directly
+    return browser.downloads.search(query);
+  } else if (typeof chrome !== "undefined") {
+    // Chrome uses a callback
+    return new Promise<any[]>((resolve) => {
+      chrome.downloads.search(query, resolve);
+    });
+  } else {
+    logger.logError("Browser does not support downloads.search");
+    return Promise.resolve([]); // Return empty array if not supported
+  }
+};
