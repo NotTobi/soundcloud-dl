@@ -58,7 +58,7 @@ const config: Config = {
   "user-id": { secret: true },
   "default-download-location": { defaultValue: "SoundCloud", sanitize: (value) => sanitizeFilenameForDownload(value) },
   "download-without-prompt": { defaultValue: true },
-  "downloadRateLimit": { defaultValue: 5 },
+  "downloadRateLimit": { defaultValue: 2 },
   "skipExistingFiles": { defaultValue: true, sync: true },
   "normalize-track": { sync: true, defaultValue: true },
   "set-metadata": { sync: true, defaultValue: true },
@@ -67,7 +67,7 @@ const config: Config = {
   "include-producers": { sync: true, defaultValue: true },
   "followed-artists": { defaultValue: [] },
   "enable-hls-rate-limiting": { sync: true, defaultValue: true },
-  "hls-rate-limit-delay-ms": { sync: true, defaultValue: 100 },
+  "hls-rate-limit-delay-ms": { sync: true, defaultValue: 200 },
   "track-download-history": { defaultValue: {} },
 };
 

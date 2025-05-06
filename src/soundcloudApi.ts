@@ -1,5 +1,14 @@
 import { Logger } from "./utils/logger";
 
+// --- Define custom error for rate limiting ---
+class RateLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RateLimitError";
+  }
+}
+// ---------------------------------------------
+
 interface MediaTranscodingFormat {
   protocol: "progressive" | "hls";
   mime_type: string;
@@ -230,7 +239,17 @@ export class SoundCloudApi {
     try {
       const resp = await fetch(url);
 
-      if (!resp.ok) return null;
+      if (!resp.ok) {
+        if (resp.status === 429) {
+          const errorMsg = `Rate limited while fetching from ${url}. Please wait and try again later.`;
+          this.logger.logWarn(errorMsg);
+          throw new RateLimitError(errorMsg);
+        } else {
+          const errorMsg = `HTTP error ${resp.status} while fetching from ${url}`;
+          this.logger.logError(errorMsg);
+          throw new Error(errorMsg);
+        }
+      }
 
       const json = (await resp.json()) as T;
 

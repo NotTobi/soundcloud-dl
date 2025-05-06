@@ -23,6 +23,7 @@ import { WavTagWriter } from "./tagWriters/wavTagWriter";
 // Message Type Constants
 const DOWNLOAD_SET = "DOWNLOAD_SET";
 const DOWNLOAD = "DOWNLOAD";
+const DOWNLOAD_SET_RANGE = "DOWNLOAD_SET_RANGE";
 
 class TrackError extends Error {
   constructor(message: string, trackId: number) {
@@ -49,6 +50,7 @@ loadConfiguration(true).then(() => {
     try {
       if (type === DOWNLOAD_SET) {
         logger.logDebug("Received set download request", { url });
+        sendDownloadProgress(tabId, downloadId, 0);
 
         const set = await soundcloudApi.resolveUrl<Playlist>(url);
 
@@ -79,6 +81,9 @@ loadConfiguration(true).then(() => {
         const trackIdChunks = chunkArray(trackIds, trackIdChunkSize);
 
         let currentTrackIdChunk = 0;
+        let encounteredError = false;
+        let lastError: Error | null = null;
+
         for (const trackIdChunk of trackIdChunks) {
           const baseTrackNumber = currentTrackIdChunk * trackIdChunkSize;
 
@@ -101,7 +106,9 @@ loadConfiguration(true).then(() => {
           await Promise.all(
             downloads.map((p) =>
               p.catch((error) => {
-                logger.logError("Failed to download track of set", error);
+                logger.logWarn("Failed to download track of set", error);
+                encounteredError = true;
+                lastError = error;
               })
             )
           );
@@ -109,9 +116,16 @@ loadConfiguration(true).then(() => {
           currentTrackIdChunk++;
         }
 
-        logger.logInfo(`Downloaded ${isAlbum ? "album" : "playlist"}!`);
+        if (encounteredError) {
+          logger.logWarn(`Playlist download completed with errors. Last error:`, lastError);
+          sendDownloadProgress(tabId, downloadId, 102, lastError ?? new Error("One or more tracks failed to download."));
+        } else {
+          logger.logInfo(`Downloaded ${isAlbum ? "album" : "playlist"} successfully!`);
+          sendDownloadProgress(tabId, downloadId, 101);
+        }
       } else if (type === DOWNLOAD) {
         logger.logDebug("Received track download request", { url });
+        sendDownloadProgress(tabId, downloadId, 0);
 
         const track = await soundcloudApi.resolveUrl<Track>(url);
 
@@ -120,6 +134,108 @@ loadConfiguration(true).then(() => {
         };
 
         await downloadTrack(track, undefined, undefined, undefined, reportTrackProgress);
+      } else if (type === DOWNLOAD_SET_RANGE) {
+        // --- Cast message to specific type ---
+        const rangeMessage = message as DownloadSetRangeRequest;
+        logger.logDebug("Received set range download request", { url, start: rangeMessage.start, end: rangeMessage.end });
+        sendDownloadProgress(tabId, downloadId, 0); // Initial progress
+
+        try {
+          const start = rangeMessage.start;
+          const end = rangeMessage.end; // Can be null
+          // --- End cast ---
+
+          const set = await soundcloudApi.resolveUrl<Playlist>(url);
+
+          if (!set || !set.tracks || set.tracks.length === 0) {
+            throw new Error(`Failed to resolve SoundCloud set or set is empty. URL: ${url}`);
+          }
+
+          const totalTracks = set.tracks.length;
+
+          // Validate range (1-based index)
+          const validatedStart = Math.max(1, Math.min(start, totalTracks));
+          const validatedEnd = end === null ? totalTracks : Math.max(validatedStart, Math.min(end, totalTracks));
+
+          if (validatedStart > validatedEnd) {
+             throw new Error(`Invalid range: Start index (${validatedStart}) cannot be greater than End index (${validatedEnd}). Total tracks: ${totalTracks}`);
+          }
+
+          logger.logInfo(`Processing range: ${validatedStart} to ${validatedEnd} (of ${totalTracks})`);
+
+          // Slice tracks (adjusting for 0-based index)
+          const tracksToDownload = set.tracks.slice(validatedStart - 1, validatedEnd); // end index for slice is exclusive
+
+          if (tracksToDownload.length === 0) {
+              logger.logWarn("Selected range resulted in zero tracks to download.");
+              sendDownloadProgress(tabId, downloadId, 101); // Report immediate completion
+              return;
+          }
+
+          const isAlbum = set.set_type === "album" || set.set_type === "ep";
+          const treatAsAlbum = isAlbum && tracksToDownload.length > 1;
+          const albumName = treatAsAlbum ? set.title : undefined;
+
+          const progresses: { [key: number]: number } = {};
+          const reportPlaylistProgress = (trackId: number) => (progress?: number) => {
+            if (progress) {
+              progresses[trackId] = progress;
+            }
+            const totalProgress = Object.values(progresses).reduce((acc, cur) => acc + cur, 0);
+            sendDownloadProgress(tabId, downloadId, totalProgress / tracksToDownload.length); // Use length of sliced array
+          };
+
+          let encounteredError = false;
+          let lastError: Error | null = null;
+
+          // --- Loop over SLICED tracks --- 
+          const trackIdChunkSize = 10; // Keep chunking for API efficiency
+          const trackIdChunks = chunkArray(tracksToDownload.map(t => t.id), trackIdChunkSize);
+          let currentTrackIdChunk = 0;
+
+          for (const trackIdChunk of trackIdChunks) {
+              const baseTrackNumberOffset = validatedStart - 1; // Offset for album track numbering based on original list position
+
+              const keyedTracks = await soundcloudApi.getTracks(trackIdChunk);
+              const tracksInChunk = Object.values(keyedTracks).reverse(); // Note: The order might not perfectly match the slice if API returns differently
+
+              logger.logInfo(`Downloading chunk ${currentTrackIdChunk + 1}/${trackIdChunks.length} of range...`);
+
+              const downloads: Promise<void>[] = [];
+              for (let i = 0; i < tracksInChunk.length; i++) {
+                  // Find the original index to calculate track number correctly if it's an album
+                  const originalIndex = set.tracks.findIndex(t => t.id === tracksInChunk[i].id);
+                  const trackNumber = treatAsAlbum && originalIndex !== -1 ? originalIndex + 1 : undefined;
+                  const playlistName = !isAlbum ? set.title : undefined;
+
+                  const download = downloadTrack(tracksInChunk[i], trackNumber, albumName, playlistName, reportPlaylistProgress(tracksInChunk[i].id));
+                  downloads.push(download);
+              }
+
+              await Promise.all(
+                  downloads.map((p) =>
+                  p.catch((error) => {
+                      logger.logWarn("Failed to download track of set range", error);
+                      encounteredError = true;
+                      lastError = error;
+                  })
+                  )
+              );
+              currentTrackIdChunk++;
+          }
+          // --------------------------------
+
+          if (encounteredError) {
+              logger.logWarn(`Playlist range download completed with errors. Last error:`, lastError);
+              sendDownloadProgress(tabId, downloadId, 102, lastError ?? new Error("One or more tracks failed to download in the selected range."));
+          } else {
+              logger.logInfo(`Downloaded playlist range successfully!`);
+              sendDownloadProgress(tabId, downloadId, 101);
+          }
+        } catch (error) {
+          sendDownloadProgress(tabId, downloadId, undefined, error);
+          logger.logError("Download failed unexpectedly for set range", error);
+        }
       } else {
         throw new Error(`Unknown download type: ${type}`);
       }
@@ -293,7 +409,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
           logger.logDebug(`No matching downloads found for TrackId: ${data.trackId} with filename base "${rawFilenameBase}"`);
         }
       } catch (error) {
-        logger.logError(`Error checking for existing download (TrackId: ${data.trackId})`, error);
+        logger.logWarn(`Error checking for existing download (TrackId: ${data.trackId})`, error);
         // Continue with download despite check error
       }
     }
@@ -749,7 +865,9 @@ async function downloadTrack(
   }
 
   if (downloadDetails.length < 1) {
-    throw new TrackError("No download details could be determined", track.id);
+    // Include track title in the error message
+    const errorMessage = `No download details could be determined for track: \"${track.title}\"`;
+    throw new TrackError(errorMessage, track.id);
   }
 
   for (const downloadDetail of downloadDetails) {
@@ -809,6 +927,12 @@ interface DownloadProgress {
   downloadId: string;
   progress?: number;
   error?: string;
+}
+
+// New interface for range requests
+interface DownloadSetRangeRequest extends DownloadRequest {
+  start: number;
+  end: number | null; // end can be null
 }
 
 function sendDownloadProgress(tabId: number, downloadId: string, progress?: number, error?: Error | string) {
