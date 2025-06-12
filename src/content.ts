@@ -177,18 +177,16 @@ const addDownloadButtonToTrackPage = () => {
 };
 
 const addDownloadButtonToFeed = () => {
-  const selector = ".sound.streamContext .sc-button-group > .sc-button-like";
-
-  // ugly inline func
+  const selector = ".queue__itemsContainer .queueItemView__more";
   const addDownloadButtonToPossiblePlaylist = (node: Element) => {
-    const soundBody = node.parentElement.closest(".sound__body");
-    const titleLink = soundBody.querySelector("a.soundTitle__title");
+    const trackUrl = node.closest(".queue__itemWrapper")?.querySelector(".queueItemView__title a").getAttribute('href');
 
-    if (titleLink === null) {
+    if (!trackUrl) {
+      logger.logError("Failed to determine track URL");
       return;
     }
 
-    const downloadUrl = window.location.origin + titleLink.getAttribute("href");
+    const downloadUrl = window.location.origin + trackUrl;
 
     const downloadCommand = createDownloadCommand(downloadUrl);
 
@@ -204,6 +202,41 @@ const addDownloadButtonToFeed = () => {
 
   observer?.addEvent(event);
 };
+
+const addDownloadButtonToPlaylistElement = () => {
+  const selector = ".trackItem__actions .sc-button-group";
+
+  const addDownloadButton = (actionsNode: Element) => {
+    const trackItem = actionsNode.closest(".trackItem");
+    if (!trackItem) {
+      logger.logError("No parent .trackItem found for actions node");
+      return;
+    }
+
+    const trackLinkElement = trackItem.querySelector(".trackItem__trackTitle");
+    const trackUrl = trackLinkElement?.getAttribute("href");
+
+    if (!trackUrl) {
+      logger.logError("Failed to find track URL");
+      return;
+    }
+
+    const downloadUrl = window.location.origin + trackUrl;
+    const downloadCommand = createDownloadCommand(downloadUrl);
+
+    addDownloadButtonToParent(actionsNode, downloadCommand, false);
+  };
+
+  document.querySelectorAll(selector).forEach(addDownloadButton);
+
+  const event: ObserverEvent = {
+    selector,
+    callback: addDownloadButton,
+  };
+
+  observer?.addEvent(event);
+};
+
 
 const handleBlockRepostsConfigChange = (blockReposts: boolean) => {
   let script = document.querySelector<HTMLScriptElement>("#repost-blocker");
@@ -252,6 +285,8 @@ const handlePageLoaded = async () => {
   removeDownloadButtons();
 
   addDownloadButtonToTrackPage();
+
+  addDownloadButtonToPlaylistElement();
 
   addDownloadButtonToFeed();
 

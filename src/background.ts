@@ -189,7 +189,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
           writer.setAlbum(data.albumName ?? titleString);
           writer.setArtists([artistsString]);
 
-          writer.setComment("https://github.com/NotTobi/soundcloud-dl");
+          // writer.setComment("<empty>");
 
           if (data.trackNumber > 0) {
             writer.setTrackNumber(data.trackNumber);
