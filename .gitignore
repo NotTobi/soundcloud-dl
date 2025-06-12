@@ -116,3 +116,5 @@ dist/js
 
 *.zip
 dist/manifest.json
+
+.idea
