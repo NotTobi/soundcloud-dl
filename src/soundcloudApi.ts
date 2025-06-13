@@ -107,15 +107,15 @@ export class SoundCloudApi {
       case "audio/aac":
         return "aac";
       case "audio/mp4":
-        return "m4a"; // MP4 контейнер с AAC
+        return "m4a";
       case "audio/mpeg":
         return "mp3";
       case "audio/ogg":
-        return "ogg"; // Может содержать Vorbis, Opus
+        return "ogg";
       case "audio/opus":
-        return "opus"; // Иногда используется отдельно
+        return "opus";
       case "audio/webm":
-        return "webm"; // WebM аудио
+        return "webm";
       case "audio/wav":
       case "audio/x-wav":
       case "audio/wave":
@@ -131,19 +131,19 @@ export class SoundCloudApi {
       case "audio/3gpp2":
         return "3g2";
       case "audio/vnd.wave":
-        return "wav"; // Альтернативное обозначение WAV
+        return "wav";
       case "audio/x-ms-wma":
         return "wma";
       case "audio/vnd.rn-realaudio":
         return "ra";
       case "audio/basic":
-        return "au"; // u-law PCM
+        return "au";
       case "audio/mpegurl":
       case "application/x-mpegurl":
       case "application/vnd.apple.mpegurl":
-        return "m3u8"; // HLS-плейлист
+        return "m3u8";
       default:
-        return null; // Неизвестный тип
+        return null;
     }
   }
 
