@@ -36,6 +36,7 @@ export interface Track {
   has_downloads_left: boolean;
   user: User;
   media: Media;
+  permalink_url: string;
 }
 
 interface Stream {

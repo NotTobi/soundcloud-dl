@@ -47,6 +47,7 @@ interface DownloadData {
   trackNumber: number | undefined;
   albumName: string | undefined;
   hls: boolean;
+  permalinkUrl: string;
 }
 
 async function handleDownload(data: DownloadData, reportProgress: (progress?: number) => void) {
@@ -189,7 +190,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
           writer.setAlbum(data.albumName ?? titleString);
           writer.setArtists([artistsString]);
 
-          // writer.setComment("<empty>");
+          writer.setComment(data.permalinkUrl || data.trackId.toString());
 
           if (data.trackNumber > 0) {
             writer.setTrackNumber(data.trackNumber);
@@ -494,6 +495,7 @@ async function downloadTrack(
         trackNumber,
         albumName,
         hls: stream.hls,
+        permalinkUrl: track.permalink_url,
       };
 
       await handleDownload(downloadData, reportProgress);
