@@ -248,32 +248,56 @@ const handlePageLoaded = async () => {
 
   removeDownloadButtons();
 
+  // Track from track page, mix / station / playlist (download all on a page)
   setupDownloadButtons({
     selector: ".listenEngagement__footer .sc-button-group, .systemPlaylistDetails__controls",
     getTrackUrl: () => window.location.pathname,
     getButtonParent: (node) => node,
   });
 
+  // Single track in playlist / mix / station (download selected track)
   setupDownloadButtons({
-    selector: ".queue__itemsContainer .queueItemView__more",
-    getTrackUrl: (node) => {
-      const el = node.closest(".queue__itemWrapper")?.querySelector(".queueItemView__title a");
-      return el?.getAttribute("href") ?? null;
-    },
-    getButtonParent: (node) => node.parentElement,
-    isSmall: true,
-  });
-
-  setupDownloadButtons({
-    selector: ".trackItem__actions .sc-button-group",
+    selector: ".trackItem .sc-button-group",
     getTrackUrl: (node) => {
       const trackItem = node.closest(".trackItem");
-      const el = trackItem?.querySelector(".trackItem__trackTitle");
+      const el = trackItem?.querySelector("a.trackItem__trackTitle");
       return el?.getAttribute("href") ?? null;
     },
     getButtonParent: (node) => node,
   });
 
+
+  // Single track in feed / author's page (download selected track)
+  setupDownloadButtons({
+    selector: ".soundList__item .sc-button-group",
+    getTrackUrl: (node) => {
+      const trackItem = node.closest(".soundList__item");
+      const el = trackItem?.querySelector("a.soundTitle__title");
+      return el?.getAttribute("href") ?? null;
+    },
+    getButtonParent: (node) => node,
+  });
+
+  setupDownloadButtons({
+    selector: ".searchItem .sc-button-group",
+    getTrackUrl: (node) => {
+      const trackItem = node.closest(".searchItem");
+      const el = trackItem?.querySelector("a.soundTitle__title");
+      return el?.getAttribute("href") ?? null;
+    },
+    getButtonParent: (node) => node,
+  });
+
+  // Next up modal (download selected track)
+  setupDownloadButtons({
+    selector: ".queueItemView__actions",
+    getTrackUrl: (node) => {
+      const el = node.closest(".queue__itemWrapper")?.querySelector(".queueItemView__title a");
+      return el?.getAttribute("href") ?? null;
+    },
+    getButtonParent: (node) => node,
+    isSmall: true,
+  });
 
   observer.start(document.body);
 

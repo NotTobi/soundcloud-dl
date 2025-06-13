@@ -100,33 +100,61 @@ export class SoundCloudApi {
     }, {});
   }
 
-  async getStreamDetails(url: string): Promise<StreamDetails> {
-    const stream = await this.fetchJson<Stream>(url);
+  convertMimeTypeToExtension(mimeType: string): string | null {
+    const baseMimeType = mimeType.split(";")[0].trim().toLowerCase();
 
+    switch (baseMimeType) {
+      case "audio/aac":
+        return "aac";
+      case "audio/mp4":
+        return "m4a"; // MP4 контейнер с AAC
+      case "audio/mpeg":
+        return "mp3";
+      case "audio/ogg":
+        return "ogg"; // Может содержать Vorbis, Opus
+      case "audio/opus":
+        return "opus"; // Иногда используется отдельно
+      case "audio/webm":
+        return "webm"; // WebM аудио
+      case "audio/wav":
+      case "audio/x-wav":
+      case "audio/wave":
+      case "audio/x-pn-wav":
+        return "wav";
+      case "audio/flac":
+      case "audio/x-flac":
+        return "flac";
+      case "audio/amr":
+        return "amr";
+      case "audio/3gpp":
+        return "3gp";
+      case "audio/3gpp2":
+        return "3g2";
+      case "audio/vnd.wave":
+        return "wav"; // Альтернативное обозначение WAV
+      case "audio/x-ms-wma":
+        return "wma";
+      case "audio/vnd.rn-realaudio":
+        return "ra";
+      case "audio/basic":
+        return "au"; // u-law PCM
+      case "audio/mpegurl":
+      case "application/x-mpegurl":
+      case "application/vnd.apple.mpegurl":
+        return "m3u8"; // HLS-плейлист
+      default:
+        return null; // Неизвестный тип
+    }
+  }
+
+  async getStreamUrl(url: string): Promise<string> {
+    const stream = await this.fetchJson<Stream>(url);
     if (!stream || !stream.url) {
       this.logger.logError("Invalid stream response", stream);
-
-      return null;
+      throw new Error("Invalid stream response");
     }
 
-    let extension;
-    let hls = false;
-    const regexResult = /(?:(\w{3,4})\/playlist)?\.(\w{3,4})(?:$|\?)/.exec(stream.url);
-
-    if (regexResult.length >= 2) {
-      if (regexResult[2] === "m3u8") {
-        extension = regexResult[1];
-        hls = true;
-      } else {
-        extension = regexResult[2];
-      }
-    }
-
-    return {
-      url: stream.url,
-      extension,
-      hls,
-    };
+   return stream.url;
   }
 
   async getOriginalDownloadUrl(id: number) {

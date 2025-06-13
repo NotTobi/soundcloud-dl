@@ -271,6 +271,7 @@ interface TranscodingDetails {
   url: string;
   protocol: "hls" | "progressive";
   quality: "hq" | "sq";
+  extension: string;
 }
 
 function getTranscodingDetails(details: Track): TranscodingDetails[] | null {
@@ -288,6 +289,7 @@ function getTranscodingDetails(details: Track): TranscodingDetails[] | null {
       protocol: transcoding.format.protocol,
       url: transcoding.url,
       quality: transcoding.quality,
+      extension: soundcloudApi.convertMimeTypeToExtension(transcoding.format.mime_type),
     }));
 
   if (mpegStreams.length < 1) {
@@ -476,7 +478,13 @@ async function downloadTrack(
       if (isTranscodingDetails(downloadDetail)) {
         logger.logDebug("Get stream details from transcoding details", downloadDetail);
 
-        stream = await soundcloudApi.getStreamDetails(downloadDetail.url);
+        const streamUrl = await soundcloudApi.getStreamUrl(downloadDetail.url);
+        stream = {
+          url: streamUrl,
+          hls: downloadDetail.protocol === 'hls',
+          extension: downloadDetail.extension,
+        }
+
       } else {
         stream = downloadDetail;
       }
