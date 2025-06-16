@@ -1,3 +1,0 @@
-- find better way to aquire client_id and oauth token, check if user logged in/out
-- cleanup `background.ts` and `content.ts`
-- ability to customize filename, e.g. add track number to beginning
