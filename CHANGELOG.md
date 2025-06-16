@@ -1,3 +1,12 @@
+## 1.14.0
+
+- Added download buttons to additional locations
+- Better HLS detection and file extension handling
+- A link to the original track is now included as comment in the file metadata
+- Removed repost blocking feature, since it's now native
+
+Thanks to [@araxal](https://github.com/Sergey-Baranenkov) for contributing some these changes!
+
 ## 1.13.1
 
 - Catch errors of individual tracks when downloading a set
