@@ -31,8 +31,6 @@ export interface Config {
   "download-without-prompt": ConfigValue<boolean>;
   "normalize-track": ConfigValue<boolean>;
   "set-metadata": ConfigValue<boolean>;
-  "block-reposts": ConfigValue<boolean>;
-  "block-playlists": ConfigValue<boolean>;
   "include-producers": ConfigValue<boolean>;
   "followed-artists": ConfigValue<number[]>;
 }
@@ -51,12 +49,13 @@ const config: Config = {
   "oauth-token": { secret: true },
   "client-id": { secret: true },
   "user-id": { secret: true },
-  "default-download-location": { defaultValue: "SoundCloud", sanitize: (value) => sanitizeFilenameForDownload(value) },
+  "default-download-location": {
+    defaultValue: "SoundCloud",
+    sanitize: (value) => sanitizeFilenameForDownload(value),
+  },
   "download-without-prompt": { defaultValue: true },
   "normalize-track": { sync: true, defaultValue: true },
   "set-metadata": { sync: true, defaultValue: true },
-  "block-reposts": { sync: true, defaultValue: false },
-  "block-playlists": { sync: true, defaultValue: false },
   "include-producers": { sync: true, defaultValue: true },
   "followed-artists": { defaultValue: [] },
 };
@@ -67,7 +66,10 @@ function isConfigKey(key: string): key is keyof Config {
   return config[key] !== undefined;
 }
 
-export async function storeConfigValue<TKey extends keyof Config>(key: TKey, value: Config[TKey]["value"]) {
+export async function storeConfigValue<TKey extends keyof Config>(
+  key: TKey,
+  value: Config[TKey]["value"]
+) {
   if (!isConfigKey(key)) return Promise.reject(`Invalid config key: ${key}`);
 
   const entry = config[key];
@@ -101,7 +103,9 @@ export async function storeConfigValue<TKey extends keyof Config>(key: TKey, val
   }
 }
 
-export async function loadConfigValue<TKey extends keyof Config>(key: TKey): Promise<Config[TKey]["value"]> {
+export async function loadConfigValue<TKey extends keyof Config>(
+  key: TKey
+): Promise<Config[TKey]["value"]> {
   if (!isConfigKey(key)) return Promise.reject(`Invalid config key: ${key}`);
 
   const entry = config[key];
@@ -149,7 +153,9 @@ export async function resetConfig() {
   }
 }
 
-export function getConfigValue<TKey extends keyof Config>(key: TKey): Config[TKey]["value"] {
+export function getConfigValue<TKey extends keyof Config>(
+  key: TKey
+): Config[TKey]["value"] {
   return config[key].value;
 }
 
@@ -160,7 +166,10 @@ export function registerConfigChangeHandler<TKey extends keyof Config>(
   config[key].onChanged = callback;
 }
 
-const handleStorageChanged = (changes: { [key: string]: StorageChange }, areaname: string) => {
+const handleStorageChanged = (
+  changes: { [key: string]: StorageChange },
+  areaname: string
+) => {
   for (const key in changes) {
     const { newValue } = changes[key];
 
@@ -170,13 +179,20 @@ const handleStorageChanged = (changes: { [key: string]: StorageChange }, areanam
 
     if (entry.value === newValue) continue;
 
-    if (areaname !== "local") logger.logInfo("Remote updating", key, "to", getDisplayValue(newValue, entry));
+    if (areaname !== "local")
+      logger.logInfo(
+        "Remote updating",
+        key,
+        "to",
+        getDisplayValue(newValue, entry)
+      );
 
     entry.value = newValue;
 
     if (entry.onChanged) entry.onChanged(newValue as never);
 
-    if (!entry.secret && onConfigValueChanged) onConfigValueChanged(key, newValue);
+    if (!entry.secret && onConfigValueChanged)
+      onConfigValueChanged(key, newValue);
   }
 };
 

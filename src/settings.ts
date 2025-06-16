@@ -1,4 +1,10 @@
-import { configKeys, loadConfiguration, storeConfigValue, getConfigValue, resetConfig } from "./utils/config";
+import {
+  configKeys,
+  loadConfiguration,
+  storeConfigValue,
+  getConfigValue,
+  resetConfig,
+} from "./utils/config";
 import { Logger } from "./utils/logger";
 
 const logger = Logger.create("Settings");
@@ -59,18 +65,15 @@ async function restoreSettings() {
   }
 }
 
-const downloadWithoutPromptElem = document.querySelector<HTMLInputElement>("#download-without-prompt");
-const defaultDownloadLocationElem = document.querySelector<HTMLInputElement>("#default-download-location");
+const downloadWithoutPromptElem = document.querySelector<HTMLInputElement>(
+  "#download-without-prompt"
+);
+const defaultDownloadLocationElem = document.querySelector<HTMLInputElement>(
+  "#default-download-location"
+);
 
 downloadWithoutPromptElem.onchange = (event: any) => {
   defaultDownloadLocationElem.disabled = !event.target.checked;
-};
-
-const blockReposts = document.querySelector<HTMLInputElement>("#block-reposts");
-const blockPlaylists = document.querySelector<HTMLInputElement>("#block-playlists");
-
-blockReposts.onchange = (event: any) => {
-  if (!event.target.checked) blockPlaylists.checked = false;
 };
 
 document.addEventListener("DOMContentLoaded", restoreSettings);

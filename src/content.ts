@@ -1,7 +1,16 @@
 import { DomObserver, ObserverEvent } from "./utils/domObserver";
 import { Logger } from "./utils/logger";
-import { sendMessageToBackend, onMessage, getPathFromExtensionFile } from "./compatibilityStubs";
-import { registerConfigChangeHandler, loadConfiguration, setOnConfigValueChanged, configKeys } from "./utils/config";
+import {
+  sendMessageToBackend,
+  onMessage,
+  getPathFromExtensionFile,
+} from "./compatibilityStubs";
+import {
+  registerConfigChangeHandler,
+  loadConfiguration,
+  setOnConfigValueChanged,
+  configKeys,
+} from "./utils/config";
 import { v4 as uuid } from "uuid";
 
 interface DownloadButton {
@@ -24,7 +33,11 @@ const logger = Logger.create("SoundCloud-Downloader");
 
 const downloadButtons: KeyedButtons = {};
 
-const setButtonText = (button: HTMLButtonElement, text: string, title?: string) => {
+const setButtonText = (
+  button: HTMLButtonElement,
+  text: string,
+  title?: string
+) => {
   button.innerText = text;
 
   button.title = title ?? text;
@@ -38,7 +51,8 @@ const resetButtonBackground = (button: HTMLButtonElement) => {
 const handleMessageFromBackgroundScript = async (_, message: any) => {
   const { downloadId, progress, error } = message;
 
-  const { elem: downloadButton, onClick: originalOnClick } = downloadButtons[downloadId];
+  const { elem: downloadButton, onClick: originalOnClick } =
+    downloadButtons[downloadId];
 
   if (!downloadButton) return;
 
@@ -92,8 +106,13 @@ const createDownloadButton = (small?: boolean) => {
   return button;
 };
 
-const addDownloadButtonToParent = (parent: Node & ParentNode, onClicked: OnButtonClicked, small?: boolean) => {
-  const downloadButtonExists = parent.querySelector("button.sc-button-download") !== null;
+const addDownloadButtonToParent = (
+  parent: Node & ParentNode,
+  onClicked: OnButtonClicked,
+  small?: boolean
+) => {
+  const downloadButtonExists =
+    parent.querySelector("button.sc-button-download") !== null;
 
   if (downloadButtonExists) {
     logger.logDebug("Download button already exists");
@@ -201,46 +220,6 @@ const setupDownloadButtons = ({
   observer?.addEvent(event);
 };
 
-
-const handleBlockRepostsConfigChange = (blockReposts: boolean) => {
-  let script = document.querySelector<HTMLScriptElement>("#repost-blocker");
-
-  if (blockReposts) {
-    if (script) {
-      logger.logWarn("Repost-Blocker script has already been injected!");
-
-      return;
-    }
-
-    const payloadFile = getPathFromExtensionFile("/js/repostBlocker.js");
-
-    if (!payloadFile) return;
-
-    logger.logInfo("Start blocking reposts");
-
-    script = document.createElement("script");
-    script.type = "text/javascript";
-    script.id = "repost-blocker";
-    script.src = payloadFile;
-
-    document.documentElement.appendChild(script);
-  } else {
-    if (!script) return;
-
-    logger.logInfo("Stop blocking reposts");
-
-    const cleanupScript = document.createElement("script");
-    cleanupScript.type = "text/javascript";
-    cleanupScript.id = "cleanup-repost-blocker";
-    cleanupScript.innerText = "XMLHttpRequest.prototype.resetSend();";
-
-    document.documentElement.appendChild(cleanupScript);
-
-    document.documentElement.removeChild(script);
-    document.documentElement.removeChild(cleanupScript);
-  }
-};
-
 const handlePageLoaded = async () => {
   observer = new DomObserver();
 
@@ -250,7 +229,8 @@ const handlePageLoaded = async () => {
 
   // Track from track page, mix / station / playlist (download all on a page)
   setupDownloadButtons({
-    selector: ".listenEngagement__footer .sc-button-group, .systemPlaylistDetails__controls",
+    selector:
+      ".listenEngagement__footer .sc-button-group, .systemPlaylistDetails__controls",
     getTrackUrl: () => window.location.pathname,
     getButtonParent: (node) => node,
   });
@@ -265,7 +245,6 @@ const handlePageLoaded = async () => {
     },
     getButtonParent: (node) => node,
   });
-
 
   // Single track in feed / author's page (download selected track)
   setupDownloadButtons({
@@ -292,7 +271,9 @@ const handlePageLoaded = async () => {
   setupDownloadButtons({
     selector: ".queueItemView__actions",
     getTrackUrl: (node) => {
-      const el = node.closest(".queue__itemWrapper")?.querySelector(".queueItemView__title a");
+      const el = node
+        .closest(".queue__itemWrapper")
+        ?.querySelector(".queueItemView__title a");
       return el?.getAttribute("href") ?? null;
     },
     getButtonParent: (node) => node,
@@ -331,8 +312,4 @@ loadConfiguration(true).then((config) => {
   }
 
   setOnConfigValueChanged(writeConfigValueToLocalStorage);
-
-  if (config["block-reposts"].value) handleBlockRepostsConfigChange(true);
-
-  registerConfigChangeHandler("block-reposts", handleBlockRepostsConfigChange);
 });
