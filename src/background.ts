@@ -47,6 +47,7 @@ interface DownloadData {
   trackNumber: number | undefined;
   albumName: string | undefined;
   hls: boolean;
+  permalinkUrl: string;
 }
 
 async function handleDownload(data: DownloadData, reportProgress: (progress?: number) => void) {
@@ -189,7 +190,7 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
           writer.setAlbum(data.albumName ?? titleString);
           writer.setArtists([artistsString]);
 
-          writer.setComment("https://github.com/NotTobi/soundcloud-dl");
+          writer.setComment(data.permalinkUrl || data.trackId.toString());
 
           if (data.trackNumber > 0) {
             writer.setTrackNumber(data.trackNumber);
@@ -270,6 +271,7 @@ interface TranscodingDetails {
   url: string;
   protocol: "hls" | "progressive";
   quality: "hq" | "sq";
+  extension: string;
 }
 
 function getTranscodingDetails(details: Track): TranscodingDetails[] | null {
@@ -287,6 +289,7 @@ function getTranscodingDetails(details: Track): TranscodingDetails[] | null {
       protocol: transcoding.format.protocol,
       url: transcoding.url,
       quality: transcoding.quality,
+      extension: soundcloudApi.convertMimeTypeToExtension(transcoding.format.mime_type),
     }));
 
   if (mpegStreams.length < 1) {
@@ -475,7 +478,13 @@ async function downloadTrack(
       if (isTranscodingDetails(downloadDetail)) {
         logger.logDebug("Get stream details from transcoding details", downloadDetail);
 
-        stream = await soundcloudApi.getStreamDetails(downloadDetail.url);
+        const streamUrl = await soundcloudApi.getStreamUrl(downloadDetail.url);
+        stream = {
+          url: streamUrl,
+          hls: downloadDetail.protocol === 'hls',
+          extension: downloadDetail.extension,
+        }
+
       } else {
         stream = downloadDetail;
       }
@@ -494,6 +503,7 @@ async function downloadTrack(
         trackNumber,
         albumName,
         hls: stream.hls,
+        permalinkUrl: track.permalink_url,
       };
 
       await handleDownload(downloadData, reportProgress);

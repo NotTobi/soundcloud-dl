@@ -12,6 +12,13 @@ interface DownloadButton {
 type KeyedButtons = { [key: string]: DownloadButton };
 type OnButtonClicked = (downloadId: string) => Promise<any>;
 
+type SetupDownloadButtonOptions = {
+  selector: string;
+  getTrackUrl: (node: Element) => string | null;
+  getButtonParent: (node: Element) => Element | null;
+  isSmall?: boolean;
+};
+
 let observer: DomObserver | null = null;
 const logger = Logger.create("SoundCloud-Downloader");
 
@@ -145,7 +152,12 @@ const removeDownloadButtons = () => {
 };
 
 const createDownloadCommand = (url: string) => (downloadId: string) => {
-  const set = url.includes("/sets/");
+  const pathname = new URL(url).pathname;
+  const parts = pathname.split("/").filter(Boolean); // удаляем пустые сегменты
+
+  const set = parts.length >= 2 && parts[parts.length - 2] === "sets";
+
+  logger.logInfo(`download command url: ${url}, is set: ${set}`);
 
   return sendMessageToBackend({
     type: set ? "DOWNLOAD_SET" : "DOWNLOAD",
@@ -154,56 +166,41 @@ const createDownloadCommand = (url: string) => (downloadId: string) => {
   });
 };
 
-const addDownloadButtonToTrackPage = () => {
-  const selector = ".sc-button-group-medium > .sc-button-like";
-
-  // ugly inline func
-  const addDownloadButtonToPossiblePlaylist = (node: Element) => {
-    const downloadUrl = window.location.origin + window.location.pathname;
-
-    const downloadCommand = createDownloadCommand(downloadUrl);
-
-    addDownloadButtonToParent(node.parentNode, downloadCommand);
-  };
-
-  document.querySelectorAll(selector).forEach(addDownloadButtonToPossiblePlaylist);
-
-  const event: ObserverEvent = {
-    selector,
-    callback: addDownloadButtonToPossiblePlaylist,
-  };
-
-  observer?.addEvent(event);
-};
-
-const addDownloadButtonToFeed = () => {
-  const selector = ".sound.streamContext .sc-button-group > .sc-button-like";
-
-  // ugly inline func
-  const addDownloadButtonToPossiblePlaylist = (node: Element) => {
-    const soundBody = node.parentElement.closest(".sound__body");
-    const titleLink = soundBody.querySelector("a.soundTitle__title");
-
-    if (titleLink === null) {
+const setupDownloadButtons = ({
+  selector,
+  getTrackUrl,
+  getButtonParent,
+  isSmall = false,
+}: SetupDownloadButtonOptions) => {
+  const handler = (node: Element) => {
+    const trackUrl = getTrackUrl(node);
+    if (!trackUrl) {
+      logger.logError("Failed to determine track URL");
       return;
     }
 
-    const downloadUrl = window.location.origin + titleLink.getAttribute("href");
-
+    const downloadUrl = window.location.origin + trackUrl;
     const downloadCommand = createDownloadCommand(downloadUrl);
 
-    addDownloadButtonToParent(node.parentNode, downloadCommand, true);
+    const parent = getButtonParent(node);
+    if (!parent) {
+      logger.logError("Failed to determine parent element for download button");
+      return;
+    }
+
+    addDownloadButtonToParent(parent, downloadCommand, isSmall);
   };
 
-  document.querySelectorAll(selector).forEach(addDownloadButtonToPossiblePlaylist);
+  document.querySelectorAll(selector).forEach(handler);
 
   const event: ObserverEvent = {
     selector,
-    callback: addDownloadButtonToPossiblePlaylist,
+    callback: handler,
   };
 
   observer?.addEvent(event);
 };
+
 
 const handleBlockRepostsConfigChange = (blockReposts: boolean) => {
   let script = document.querySelector<HTMLScriptElement>("#repost-blocker");
@@ -251,9 +248,56 @@ const handlePageLoaded = async () => {
 
   removeDownloadButtons();
 
-  addDownloadButtonToTrackPage();
+  // Track from track page, mix / station / playlist (download all on a page)
+  setupDownloadButtons({
+    selector: ".listenEngagement__footer .sc-button-group, .systemPlaylistDetails__controls",
+    getTrackUrl: () => window.location.pathname,
+    getButtonParent: (node) => node,
+  });
 
-  addDownloadButtonToFeed();
+  // Single track in playlist / mix / station (download selected track)
+  setupDownloadButtons({
+    selector: ".trackItem .sc-button-group",
+    getTrackUrl: (node) => {
+      const trackItem = node.closest(".trackItem");
+      const el = trackItem?.querySelector("a.trackItem__trackTitle");
+      return el?.getAttribute("href") ?? null;
+    },
+    getButtonParent: (node) => node,
+  });
+
+
+  // Single track in feed / author's page (download selected track)
+  setupDownloadButtons({
+    selector: ".soundList__item .sc-button-group",
+    getTrackUrl: (node) => {
+      const trackItem = node.closest(".soundList__item");
+      const el = trackItem?.querySelector("a.soundTitle__title");
+      return el?.getAttribute("href") ?? null;
+    },
+    getButtonParent: (node) => node,
+  });
+
+  setupDownloadButtons({
+    selector: ".searchItem .sc-button-group",
+    getTrackUrl: (node) => {
+      const trackItem = node.closest(".searchItem");
+      const el = trackItem?.querySelector("a.soundTitle__title");
+      return el?.getAttribute("href") ?? null;
+    },
+    getButtonParent: (node) => node,
+  });
+
+  // Next up modal (download selected track)
+  setupDownloadButtons({
+    selector: ".queueItemView__actions",
+    getTrackUrl: (node) => {
+      const el = node.closest(".queue__itemWrapper")?.querySelector(".queueItemView__title a");
+      return el?.getAttribute("href") ?? null;
+    },
+    getButtonParent: (node) => node,
+    isSmall: true,
+  });
 
   observer.start(document.body);
 
