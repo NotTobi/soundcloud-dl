@@ -12,11 +12,18 @@ import {
 } from "./compatibilityStubs";
 import { MetadataExtractor, ArtistType, RemixType } from "./metadataExtractor";
 import { Mp3TagWriter } from "./tagWriters/mp3TagWriter";
-import { loadConfiguration, storeConfigValue, getConfigValue, registerConfigChangeHandler } from "./utils/config";
+import {
+  loadConfiguration,
+  storeConfigValue,
+  getConfigValue,
+} from "./utils/config";
 import { TagWriter } from "./tagWriters/tagWriter";
 import { Mp4TagWriter } from "./tagWriters/mp4TagWriter";
 import { Parser } from "m3u8-parser";
-import { concatArrayBuffers, sanitizeFilenameForDownload } from "./utils/download";
+import {
+  concatArrayBuffers,
+  sanitizeFilenameForDownload,
+} from "./utils/download";
 import { WavTagWriter } from "./tagWriters/wavTagWriter";
 
 class TrackError extends Error {
@@ -50,20 +57,30 @@ interface DownloadData {
   permalinkUrl: string;
 }
 
-async function handleDownload(data: DownloadData, reportProgress: (progress?: number) => void) {
+async function handleDownload(
+  data: DownloadData,
+  reportProgress: (progress?: number) => void
+) {
   // todo: one big try-catch is not really good error handling :/
   try {
-    logger.logInfo(`Initiating download of ${data.trackId} with payload`, { payload: data });
+    logger.logInfo(`Initiating download of ${data.trackId} with payload`, {
+      payload: data,
+    });
 
     let artistsString = data.username;
     let titleString = data.title;
 
     if (getConfigValue("normalize-track")) {
-      const extractor = new MetadataExtractor(data.title, data.username, data.userPermalink);
+      const extractor = new MetadataExtractor(
+        data.title,
+        data.username,
+        data.userPermalink
+      );
 
       let artists = extractor.getArtists();
 
-      if (!getConfigValue("include-producers")) artists = artists.filter((i) => i.type !== ArtistType.Producer);
+      if (!getConfigValue("include-producers"))
+        artists = artists.filter((i) => i.type !== ArtistType.Producer);
 
       artistsString = artists.map((i) => i.name).join(", ");
       titleString = extractor.getTitle();
@@ -71,7 +88,8 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
       if (remixers.length > 0) {
         const remixerNames = remixers.map((i) => i.name).join(" & ");
-        const remixTypeString = RemixType[remixers[0].remixType || RemixType.Remix].toString();
+        const remixTypeString =
+          RemixType[remixers[0].remixType || RemixType.Remix].toString();
 
         titleString += ` (${remixerNames} ${remixTypeString})`;
       }
@@ -85,16 +103,22 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       titleString = "Unknown";
     }
 
-    const rawFilename = sanitizeFilenameForDownload(`${artistsString} - ${titleString}`);
+    const rawFilename = sanitizeFilenameForDownload(
+      `${artistsString} - ${titleString}`
+    );
 
     let artworkUrl = data.artworkUrl;
 
     if (!artworkUrl) {
-      logger.logInfo(`No Artwork URL could be determined. Fallback to User Avatar (TrackId: ${data.trackId})`);
+      logger.logInfo(
+        `No Artwork URL could be determined. Fallback to User Avatar (TrackId: ${data.trackId})`
+      );
       artworkUrl = data.avatarUrl;
     }
 
-    logger.logInfo(`Starting download of '${rawFilename}' (TrackId: ${data.trackId})...`);
+    logger.logInfo(
+      `Starting download of '${rawFilename}' (TrackId: ${data.trackId})...`
+    );
 
     let streamBuffer: ArrayBuffer;
     let streamHeaders: Headers;
@@ -110,7 +134,9 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
         parser.push(playlist);
         parser.end();
 
-        const segmentUrls: string[] = parser.manifest.segments.map((i) => i.uri);
+        const segmentUrls: string[] = parser.manifest.segments.map(
+          (i) => i.uri
+        );
         const segments: ArrayBuffer[] = [];
 
         for (let i = 0; i < segmentUrls.length; i++) {
@@ -128,15 +154,24 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
         streamBuffer = concatArrayBuffers(segments);
       } catch (error) {
-        logger.logError(`Failed to download m3u8 playlist (TrackId: ${data.trackId})`, error);
+        logger.logError(
+          `Failed to download m3u8 playlist (TrackId: ${data.trackId})`,
+          error
+        );
 
         throw error;
       }
     } else {
       try {
-        [streamBuffer, streamHeaders] = await soundcloudApi.downloadStream(data.streamUrl, reportProgress);
+        [streamBuffer, streamHeaders] = await soundcloudApi.downloadStream(
+          data.streamUrl,
+          reportProgress
+        );
       } catch (error) {
-        logger.logError(`Failed to download stream (TrackId: ${data.trackId})`, error);
+        logger.logError(
+          `Failed to download stream (TrackId: ${data.trackId})`,
+          error
+        );
 
         throw error;
       }
@@ -152,14 +187,18 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       let extension = "mp3";
 
       if (contentType === "audio/mp4") extension = "m4a";
-      else if (contentType === "audio/x-wav" || contentType === "audio/wav") extension = "wav";
+      else if (contentType === "audio/x-wav" || contentType === "audio/wav")
+        extension = "wav";
 
       data.fileExtension = extension;
 
-      logger.logInfo(`Inferred file extension from 'content-type' header (TrackId: ${data.trackId})`, {
-        contentType,
-        extension,
-      });
+      logger.logInfo(
+        `Inferred file extension from 'content-type' header (TrackId: ${data.trackId})`,
+        {
+          contentType,
+          extension,
+        }
+      );
     }
 
     let downloadBuffer: ArrayBuffer;
@@ -174,7 +213,10 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
           try {
             mp4Writer.setDuration(data.duration);
           } catch (error) {
-            logger.logError(`Failed to set duration for track (TrackId: ${data.trackId})`, error);
+            logger.logError(
+              `Failed to set duration for track (TrackId: ${data.trackId})`,
+              error
+            );
           }
 
           writer = mp4Writer;
@@ -207,22 +249,32 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
             do {
               const curSizeOption = sizeOptions.shift();
-              curArtworkUrl = artworkUrl.replace("-large.", `-${curSizeOption}.`);
+              curArtworkUrl = artworkUrl.replace(
+                "-large.",
+                `-${curSizeOption}.`
+              );
 
-              artworkBuffer = await soundcloudApi.downloadArtwork(curArtworkUrl);
+              artworkBuffer = await soundcloudApi.downloadArtwork(
+                curArtworkUrl
+              );
             } while (artworkBuffer === null && sizeOptions.length > 0);
 
             if (artworkBuffer) {
               writer.setArtwork(artworkBuffer);
             }
           } else {
-            logger.logWarn(`Skipping download of Artwork (TrackId: ${data.trackId})`);
+            logger.logWarn(
+              `Skipping download of Artwork (TrackId: ${data.trackId})`
+            );
           }
 
           downloadBuffer = await writer.getBuffer();
         }
       } catch (error) {
-        logger.logError(`Failed to set metadata (TrackId: ${data.trackId})`, error);
+        logger.logError(
+          `Failed to set metadata (TrackId: ${data.trackId})`,
+          error
+        );
       }
     }
 
@@ -230,7 +282,10 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
     if (contentType) blobOptions.type = contentType;
 
-    const downloadBlob = new Blob([downloadBuffer ?? streamBuffer], blobOptions);
+    const downloadBlob = new Blob(
+      [downloadBuffer ?? streamBuffer],
+      blobOptions
+    );
 
     const saveAs = !getConfigValue("download-without-prompt");
     const defaultDownloadLocation = getConfigValue("default-download-location");
@@ -240,7 +295,9 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
       downloadFilename = defaultDownloadLocation + "/" + downloadFilename;
     }
 
-    logger.logInfo(`Downloading track as '${downloadFilename}' (TrackId: ${data.trackId})...`);
+    logger.logInfo(
+      `Downloading track as '${downloadFilename}' (TrackId: ${data.trackId})...`
+    );
 
     let downloadUrl: string;
 
@@ -249,16 +306,24 @@ async function handleDownload(data: DownloadData, reportProgress: (progress?: nu
 
       await downloadToFile(downloadUrl, downloadFilename, saveAs);
 
-      logger.logInfo(`Successfully downloaded '${rawFilename}' (TrackId: ${data.trackId})!`);
+      logger.logInfo(
+        `Successfully downloaded '${rawFilename}' (TrackId: ${data.trackId})!`
+      );
 
       reportProgress(101);
     } catch (error) {
-      logger.logError(`Failed to download track to file system (TrackId: ${data.trackId})`, {
-        downloadFilename,
-        saveAs,
-      });
+      logger.logError(
+        `Failed to download track to file system (TrackId: ${data.trackId})`,
+        {
+          downloadFilename,
+          saveAs,
+        }
+      );
 
-      throw new TrackError(`Failed to download track to file system`, data.trackId);
+      throw new TrackError(
+        `Failed to download track to file system`,
+        data.trackId
+      );
     } finally {
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
     }
@@ -280,7 +345,8 @@ function getTranscodingDetails(details: Track): TranscodingDetails[] | null {
   const mpegStreams = details.media.transcodings
     .filter(
       (transcoding) =>
-        (transcoding.format?.protocol === "progressive" || transcoding.format?.protocol === "hls") &&
+        (transcoding.format?.protocol === "progressive" ||
+          transcoding.format?.protocol === "hls") &&
         (transcoding.format?.mime_type?.startsWith("audio/mpeg") ||
           transcoding.format?.mime_type?.startsWith("audio/mp4")) &&
         !transcoding.snipped
@@ -289,7 +355,9 @@ function getTranscodingDetails(details: Track): TranscodingDetails[] | null {
       protocol: transcoding.format.protocol,
       url: transcoding.url,
       quality: transcoding.quality,
-      extension: soundcloudApi.convertMimeTypeToExtension(transcoding.format.mime_type),
+      extension: soundcloudApi.convertMimeTypeToExtension(
+        transcoding.format.mime_type
+      ),
     }));
 
   if (mpegStreams.length < 1) {
@@ -340,7 +408,8 @@ onBeforeSendHeaders(
 
     if (details.requestHeaders && getConfigValue("oauth-token") !== null) {
       for (let i = 0; i < details.requestHeaders.length; i++) {
-        if (details.requestHeaders[i].name.toLowerCase() !== "authorization") continue;
+        if (details.requestHeaders[i].name.toLowerCase() !== "authorization")
+          continue;
 
         requestHasAuth = true;
         const authHeader = details.requestHeaders[i].value;
@@ -376,7 +445,10 @@ onBeforeRequest(
   (details) => {
     const url = new URL(details.url);
 
-    if (url.pathname === "/connect/session" && getConfigValue("oauth-token") === null) {
+    if (
+      url.pathname === "/connect/session" &&
+      getConfigValue("oauth-token") === null
+    ) {
       logger.logInfo("User logged in");
 
       storeConfigValue("oauth-token", undefined);
@@ -384,27 +456,7 @@ onBeforeRequest(
       logger.logInfo("User logged out");
 
       storeConfigValue("oauth-token", null);
-      storeConfigValue("user-id", null);
       storeConfigValue("client-id", null);
-      storeConfigValue("followed-artists", []);
-    } else if (url.pathname.startsWith("/me/followings/")) {
-      const followerIdMatch = followerIdRegex.exec(url.pathname);
-
-      if (followerIdMatch.length === 2) {
-        const followerId = +followerIdMatch[1];
-
-        if (!!followerId) {
-          let followedArtists = getConfigValue("followed-artists");
-
-          if (details.method === "POST") {
-            followedArtists = [...followedArtists, followerId];
-          } else if (details.method === "DELETE") {
-            followedArtists = followedArtists.filter((i) => i !== followerId);
-          }
-
-          storeConfigValue("followed-artists", followedArtists);
-        }
-      }
     } else {
       const clientId = url.searchParams.get("client_id");
       const storedClientId = getConfigValue("client-id");
@@ -412,7 +464,10 @@ onBeforeRequest(
       if (clientId) {
         storeConfigValue("client-id", clientId);
       } else if (storedClientId) {
-        logger.logDebug("Adding ClientId to unauthenticated request...", { url, clientId: storedClientId });
+        logger.logDebug("Adding ClientId to unauthenticated request...", {
+          url,
+          clientId: storedClientId,
+        });
 
         url.searchParams.append("client_id", storedClientId);
 
@@ -427,7 +482,12 @@ onBeforeRequest(
 );
 
 function isValidTrack(track: Track) {
-  return track && track.kind === "track" && track.state === "finished" && (track.streamable || track.downloadable);
+  return (
+    track &&
+    track.kind === "track" &&
+    track.state === "finished" &&
+    (track.streamable || track.downloadable)
+  );
 }
 
 function isTranscodingDetails(detail: unknown): detail is TranscodingDetails {
@@ -441,15 +501,27 @@ async function downloadTrack(
   reportProgress: (progress?: number) => void
 ) {
   if (!isValidTrack(track)) {
-    logger.logError("Track does not satisfy constraints needed to be downloadable", track);
+    logger.logError(
+      "Track does not satisfy constraints needed to be downloadable",
+      track
+    );
 
-    throw new TrackError("Track does not satisfy constraints needed to be downloadable", track.id);
+    throw new TrackError(
+      "Track does not satisfy constraints needed to be downloadable",
+      track.id
+    );
   }
 
   const downloadDetails: Array<StreamDetails | TranscodingDetails> = [];
 
-  if (getConfigValue("download-original-version") && track.downloadable && track.has_downloads_left) {
-    const originalDownloadUrl = await soundcloudApi.getOriginalDownloadUrl(track.id);
+  if (
+    getConfigValue("download-original-version") &&
+    track.downloadable &&
+    track.has_downloads_left
+  ) {
+    const originalDownloadUrl = await soundcloudApi.getOriginalDownloadUrl(
+      track.id
+    );
 
     if (originalDownloadUrl) {
       const stream: StreamDetails = {
@@ -476,15 +548,17 @@ async function downloadTrack(
 
     try {
       if (isTranscodingDetails(downloadDetail)) {
-        logger.logDebug("Get stream details from transcoding details", downloadDetail);
+        logger.logDebug(
+          "Get stream details from transcoding details",
+          downloadDetail
+        );
 
         const streamUrl = await soundcloudApi.getStreamUrl(downloadDetail.url);
         stream = {
           url: streamUrl,
-          hls: downloadDetail.protocol === 'hls',
+          hls: downloadDetail.protocol === "hls",
           extension: downloadDetail.extension,
-        }
-
+        };
       } else {
         stream = downloadDetail;
       }
@@ -515,7 +589,10 @@ async function downloadTrack(
     }
   }
 
-  throw new TrackError("No version of this track could be downloaded", track.id);
+  throw new TrackError(
+    "No version of this track could be downloaded",
+    track.id
+  );
 }
 
 interface Playlist {
@@ -536,7 +613,12 @@ interface DownloadProgress {
   error?: string;
 }
 
-function sendDownloadProgress(tabId: number, downloadId: string, progress?: number, error?: Error | string) {
+function sendDownloadProgress(
+  tabId: number,
+  downloadId: string,
+  progress?: number,
+  error?: Error | string
+) {
   let errorMessage: string = "";
 
   if (error instanceof Error) {
@@ -585,15 +667,23 @@ onMessage(async (sender, message: DownloadRequest) => {
 
       const progresses: { [key: number]: number } = {};
 
-      const reportPlaylistProgress = (trackId: number) => (progress?: number) => {
-        if (progress) {
-          progresses[trackId] = progress;
-        }
+      const reportPlaylistProgress =
+        (trackId: number) => (progress?: number) => {
+          if (progress) {
+            progresses[trackId] = progress;
+          }
 
-        const totalProgress = Object.values(progresses).reduce((acc, cur) => acc + cur, 0);
+          const totalProgress = Object.values(progresses).reduce(
+            (acc, cur) => acc + cur,
+            0
+          );
 
-        sendDownloadProgress(tabId, downloadId, totalProgress / trackIds.length);
-      };
+          sendDownloadProgress(
+            tabId,
+            downloadId,
+            totalProgress / trackIds.length
+          );
+        };
 
       const treatAsAlbum = isAlbum && trackIds.length > 1;
       const albumName = treatAsAlbum ? set.title : undefined;
@@ -613,9 +703,16 @@ onMessage(async (sender, message: DownloadRequest) => {
         const downloads: Promise<void>[] = [];
 
         for (let i = 0; i < tracks.length; i++) {
-          const trackNumber = treatAsAlbum ? baseTrackNumber + i + 1 : undefined;
+          const trackNumber = treatAsAlbum
+            ? baseTrackNumber + i + 1
+            : undefined;
 
-          const download = downloadTrack(tracks[i], trackNumber, albumName, reportPlaylistProgress(tracks[i].id));
+          const download = downloadTrack(
+            tracks[i],
+            trackNumber,
+            albumName,
+            reportPlaylistProgress(tracks[i].id)
+          );
 
           downloads.push(download);
         }
@@ -655,31 +752,3 @@ onMessage(async (sender, message: DownloadRequest) => {
 onPageActionClicked(() => {
   openOptionsPage();
 });
-
-const oauthTokenChanged = async (token: string) => {
-  if (!token) return;
-
-  const user = await soundcloudApi.getCurrentUser();
-
-  if (!user) {
-    logger.logError("Failed to fetch currently logged in user");
-
-    return;
-  }
-
-  storeConfigValue("user-id", user.id);
-
-  logger.logInfo("Logged in as", user.username);
-
-  const followedArtistIds = await soundcloudApi.getFollowedArtistIds(user.id);
-
-  if (!followedArtistIds) {
-    logger.logError("Failed to fetch ids of followed artists");
-
-    return;
-  }
-
-  storeConfigValue("followed-artists", followedArtistIds);
-};
-
-registerConfigChangeHandler("oauth-token", oauthTokenChanged);

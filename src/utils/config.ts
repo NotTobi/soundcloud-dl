@@ -26,13 +26,11 @@ export interface Config {
   "download-original-version": ConfigValue<boolean>;
   "oauth-token": ConfigValue<string>;
   "client-id": ConfigValue<string>;
-  "user-id": ConfigValue<number>;
   "default-download-location": ConfigValue<string>;
   "download-without-prompt": ConfigValue<boolean>;
   "normalize-track": ConfigValue<boolean>;
   "set-metadata": ConfigValue<boolean>;
   "include-producers": ConfigValue<boolean>;
-  "followed-artists": ConfigValue<number[]>;
 }
 
 type OnConfigValueChangedType = (key: keyof Config, value: any) => void;
@@ -48,7 +46,6 @@ const config: Config = {
   "download-original-version": { sync: true, defaultValue: false },
   "oauth-token": { secret: true },
   "client-id": { secret: true },
-  "user-id": { secret: true },
   "default-download-location": {
     defaultValue: "SoundCloud",
     sanitize: (value) => sanitizeFilenameForDownload(value),
@@ -57,7 +54,6 @@ const config: Config = {
   "normalize-track": { sync: true, defaultValue: true },
   "set-metadata": { sync: true, defaultValue: true },
   "include-producers": { sync: true, defaultValue: true },
-  "followed-artists": { defaultValue: [] },
 };
 
 export const configKeys = Object.keys(config) as Array<keyof Config>;

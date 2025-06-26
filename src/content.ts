@@ -1,12 +1,7 @@
 import { DomObserver, ObserverEvent } from "./utils/domObserver";
 import { Logger } from "./utils/logger";
+import { sendMessageToBackend, onMessage } from "./compatibilityStubs";
 import {
-  sendMessageToBackend,
-  onMessage,
-  getPathFromExtensionFile,
-} from "./compatibilityStubs";
-import {
-  registerConfigChangeHandler,
   loadConfiguration,
   setOnConfigValueChanged,
   configKeys,
@@ -94,6 +89,9 @@ const handleMessageFromBackgroundScript = async (_, message: any) => {
   }
 };
 
+// -----------------------
+// SETUP MESSAGE HANDLER
+// -----------------------
 onMessage(handleMessageFromBackgroundScript);
 
 const createDownloadButton = (small?: boolean) => {
@@ -137,37 +135,6 @@ const addDownloadButtonToParent = (
   };
 
   parent.appendChild(button);
-};
-
-const removeElementFromParent = (element: Element) => {
-  element.parentNode.removeChild(element);
-};
-
-const removeElementsMatchingSelectors = (selectors: string) => {
-  const elements = document.querySelectorAll(selectors);
-
-  for (let i = 0; i < elements.length; i++) {
-    const element = elements[i];
-
-    removeElementFromParent(element);
-  }
-};
-
-const removeBuyLinks = () => {
-  const selector = "a.sc-buylink";
-
-  removeElementsMatchingSelectors(selector);
-
-  const event: ObserverEvent = {
-    selector,
-    callback: (node) => removeElementFromParent(node),
-  };
-
-  observer?.addEvent(event);
-};
-
-const removeDownloadButtons = () => {
-  removeElementsMatchingSelectors("button.sc-button-download");
 };
 
 const createDownloadCommand = (url: string) => (downloadId: string) => {
@@ -222,10 +189,6 @@ const setupDownloadButtons = ({
 
 const handlePageLoaded = async () => {
   observer = new DomObserver();
-
-  removeBuyLinks();
-
-  removeDownloadButtons();
 
   // Track from track page, mix / station / playlist (download all on a page)
   setupDownloadButtons({
