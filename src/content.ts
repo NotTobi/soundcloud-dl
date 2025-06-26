@@ -198,6 +198,13 @@ const handlePageLoaded = async () => {
     getButtonParent: (node) => node,
   });
 
+  // Track from track page (visual style)
+  setupDownloadButtons({
+    selector: ".sound__footer .sc-button-group",
+    getTrackUrl: () => window.location.pathname,
+    getButtonParent: (node) => node,
+  });
+
   // Single track in playlist / mix / station (download selected track)
   setupDownloadButtons({
     selector: ".trackItem .sc-button-group",
