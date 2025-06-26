@@ -1,3 +1,7 @@
+## 1.14.1
+
+- Display download button for tracks with a custom background
+
 ## 1.14.0
 
 - Added download buttons to additional locations
