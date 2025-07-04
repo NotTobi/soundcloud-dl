@@ -29,6 +29,7 @@ If you want to support the development of this extension, consider donating!
 [**Donate here**](https://www.paypal.me/nottobii)
 
 ## Known issues
+
 1. The normalization of some track names can fail and produce wrong results
 2. Sometimes the extension fails to recognize a user login/logout. A page refresh can help!
 3. The block reposts feature can sometimes not work, checkout [this](https://github.com/NotTobi/soundcloud-dl/issues/12#issuecomment-753988874) for a solution.
@@ -51,13 +52,13 @@ I will try and respond as soon as possible!
 
 ### Operating system used
 
-Linux 5.9 (Arch-based)
+MacOS 15.5
 
 ### Software/Tooling used
 
-- node v13.13.0 - [Installation instructions](https://nodejs.org/en/download/)
-- yarn v1.22.4 - [Installation instructions](https://classic.yarnpkg.com/en/docs/install)
-- jq v1.6 [Installation instructions](https://stedolan.github.io/jq/download/)
+- node v21.5.0 - [Installation instructions](https://nodejs.org/en/download/)
+- yarn v1.22.22 - [Installation instructions](https://classic.yarnpkg.com/en/docs/install)
+- jq v1.7.1 [Installation instructions](https://stedolan.github.io/jq/download/)
 
 ### Build process
 
