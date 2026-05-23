@@ -37,6 +37,7 @@ export interface Track {
   user: User;
   media: Media;
   permalink_url: string;
+  track_authorization: string;
 }
 
 interface Stream {
@@ -147,8 +148,15 @@ export class SoundCloudApi {
     }
   }
 
-  async getStreamUrl(url: string): Promise<string> {
-    const stream = await this.fetchJson<Stream>(url);
+  async getStreamUrl(url: string, trackAuthorization?: string): Promise<string> {
+    let reqUrl = url;
+
+    if (trackAuthorization) {
+      const separator = reqUrl.includes("?") ? "&" : "?";
+      reqUrl = `${reqUrl}${separator}track_authorization=${encodeURIComponent(trackAuthorization)}`;
+    }
+
+    const stream = await this.fetchJson<Stream>(reqUrl);
     if (!stream || !stream.url) {
       this.logger.logError("Invalid stream response", stream);
       throw new Error("Invalid stream response");
@@ -198,6 +206,12 @@ export class SoundCloudApi {
             const handleReadyStateChanged = async (event: Event) => {
               if (req.readyState == req.DONE) {
                 if (req.status !== 200 || !req.response) {
+                  this.logger.logError(`Failed to fetch ArrayBuffer (XHR) from: ${url}`, {
+                    status: req.status,
+                    statusText: req.statusText,
+                    hasResponse: !!req.response,
+                  });
+
                   resolve([null, null]);
 
                   return;
@@ -241,11 +255,24 @@ export class SoundCloudApi {
 
       const resp = await fetch(url);
 
-      if (!resp.ok) return [null, null];
+      if (!resp.ok) {
+        this.logger.logError(`Failed to fetch ArrayBuffer from: ${url}`, {
+          status: resp.status,
+          statusText: resp.statusText,
+        });
+
+        return [null, null];
+      }
 
       const buffer = await resp.arrayBuffer();
 
-      if (!buffer) return [null, null];
+      if (!buffer) {
+        this.logger.logError(`Empty ArrayBuffer body from: ${url}`, {
+          status: resp.status,
+        });
+
+        return [null, null];
+      }
 
       return [buffer, resp.headers];
     } catch (error) {
@@ -256,18 +283,47 @@ export class SoundCloudApi {
   }
 
   private async fetchJson<T>(url: string) {
+    let resp: Response;
+
     try {
-      const resp = await fetch(url);
+      resp = await fetch(url);
+    } catch (error) {
+      this.logger.logError(`Failed to fetch JSON from: ${url}`, error);
 
-      if (!resp.ok) return null;
+      return null;
+    }
 
+    if (!resp.ok) {
+      let body: string | undefined;
+      try {
+        body = await resp.text();
+      } catch {
+        // ignore
+      }
+
+      this.logger.logError(`Failed to fetch JSON from: ${url}`, {
+        status: resp.status,
+        statusText: resp.statusText,
+        body: body?.slice(0, 500),
+      });
+
+      return null;
+    }
+
+    try {
       const json = (await resp.json()) as T;
 
-      if (!json) return null;
+      if (!json) {
+        this.logger.logError(`Empty JSON body from: ${url}`, {
+          status: resp.status,
+        });
+
+        return null;
+      }
 
       return json;
     } catch (error) {
-      this.logger.logError("Failed to fetch JSON from", url);
+      this.logger.logError(`Failed to parse JSON from: ${url}`, error);
 
       return null;
     }

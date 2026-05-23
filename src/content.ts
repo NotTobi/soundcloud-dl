@@ -1,5 +1,4 @@
 import { DomObserver, ObserverEvent } from "./utils/domObserver";
-import { Logger } from "./utils/logger";
 import { sendMessageToBackend, onMessage } from "./compatibilityStubs";
 import {
   loadConfiguration,
@@ -24,7 +23,6 @@ type SetupDownloadButtonOptions = {
 };
 
 let observer: DomObserver | null = null;
-const logger = Logger.create("SoundCloud-Downloader");
 
 const downloadButtons: KeyedButtons = {};
 
@@ -44,7 +42,7 @@ const resetButtonBackground = (button: HTMLButtonElement) => {
 };
 
 const handleMessageFromBackgroundScript = async (_, message: any) => {
-  const { downloadId, progress, error } = message;
+  const { downloadId, progress, error, errorLabel } = message;
 
   const { elem: downloadButton, onClick: originalOnClick } =
     downloadButtons[downloadId];
@@ -83,7 +81,12 @@ const handleMessageFromBackgroundScript = async (_, message: any) => {
 
     downloadButton.style.backgroundColor = "#d30029";
 
-    setButtonText(downloadButton, "ERROR", error);
+    const buttonLabel = errorLabel ? `Error: ${errorLabel}` : "Error";
+
+    setButtonText(downloadButton, buttonLabel, error);
+
+    downloadButton.style.cursor = "pointer";
+    downloadButton.onclick = originalOnClick;
 
     delete downloadButtons[downloadId];
   }
@@ -113,8 +116,6 @@ const addDownloadButtonToParent = (
     parent.querySelector("button.sc-button-download") !== null;
 
   if (downloadButtonExists) {
-    logger.logDebug("Download button already exists");
-
     return;
   }
 
@@ -127,6 +128,7 @@ const addDownloadButtonToParent = (
       onClick: button.onclick,
     };
 
+    resetButtonBackground(button);
     button.style.cursor = "default";
     button.onclick = null;
     setButtonText(button, "Preparing...");
@@ -139,11 +141,9 @@ const addDownloadButtonToParent = (
 
 const createDownloadCommand = (url: string) => (downloadId: string) => {
   const pathname = new URL(url).pathname;
-  const parts = pathname.split("/").filter(Boolean); // удаляем пустые сегменты
+  const parts = pathname.split("/").filter(Boolean);
 
   const set = parts.length >= 2 && parts[parts.length - 2] === "sets";
-
-  logger.logInfo(`download command url: ${url}, is set: ${set}`);
 
   return sendMessageToBackend({
     type: set ? "DOWNLOAD_SET" : "DOWNLOAD",
@@ -161,7 +161,6 @@ const setupDownloadButtons = ({
   const handler = (node: Element) => {
     const trackUrl = getTrackUrl(node);
     if (!trackUrl) {
-      logger.logError("Failed to determine track URL");
       return;
     }
 
@@ -170,7 +169,6 @@ const setupDownloadButtons = ({
 
     const parent = getButtonParent(node);
     if (!parent) {
-      logger.logError("Failed to determine parent element for download button");
       return;
     }
 
@@ -201,7 +199,21 @@ const handlePageLoaded = async () => {
   // Track from track page (visual style)
   setupDownloadButtons({
     selector: ".sound__footer .sc-button-group",
-    getTrackUrl: () => window.location.pathname,
+    getTrackUrl: (node) => {
+      const sound = node.closest(".sound");
+
+      const titleLink = sound?.querySelector("a.soundTitle__title");
+      const titleHref = titleLink?.getAttribute("href");
+      if (titleHref) return titleHref;
+
+      const ministatLink = sound?.querySelector("a.sc-ministats[href]");
+      const ministatHref = ministatLink?.getAttribute("href");
+      const stripped = ministatHref?.replace(
+        /\/(likes|reposts|comments)$/,
+        ""
+      );
+      return stripped ?? null;
+    },
     getButtonParent: (node) => node,
   });
 
@@ -251,8 +263,6 @@ const handlePageLoaded = async () => {
   });
 
   observer.start(document.body);
-
-  logger.logInfo("Attached!");
 };
 
 const documentState = document.readyState;
@@ -265,7 +275,6 @@ document.addEventListener("DOMContentLoaded", handlePageLoaded);
 
 window.onbeforeunload = () => {
   observer?.stop();
-  logger.logDebug("Unattached!");
 };
 
 function writeConfigValueToLocalStorage(key: string, value: any) {

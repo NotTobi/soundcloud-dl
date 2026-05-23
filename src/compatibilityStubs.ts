@@ -36,16 +36,12 @@ export const onMessage = (callback: MessageFromTabCallback) => {
       if (sender.id !== browser.runtime.id || !message) return;
 
       callback(sender, message);
-
-      return true;
     });
   } else if (typeof chrome !== "undefined") {
     chrome.runtime.onMessage.addListener((message, sender) => {
       if (sender.id !== chrome.runtime.id || !message) return;
 
       callback(sender, message);
-
-      return true;
     });
   } else {
     logger.logError("Browser does not support runtime.onMessage");

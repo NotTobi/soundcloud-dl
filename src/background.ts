@@ -27,8 +27,11 @@ import {
 import { WavTagWriter } from "./tagWriters/wavTagWriter";
 
 class TrackError extends Error {
-  constructor(message: string, trackId: number) {
+  readonly errorLabel?: string;
+
+  constructor(message: string, trackId: number, errorLabel?: string) {
     super(`${message} (TrackId: ${trackId})`);
+    this.errorLabel = errorLabel;
   }
 }
 
@@ -178,7 +181,11 @@ async function handleDownload(
     }
 
     if (!streamBuffer) {
-      throw new TrackError("Undefined streamBuffer", data.trackId);
+      throw new TrackError(
+        "SoundCloud returned no audio data for this track.",
+        data.trackId,
+        "No audio received"
+      );
     }
 
     let contentType;
@@ -321,14 +328,23 @@ async function handleDownload(
       );
 
       throw new TrackError(
-        `Failed to download track to file system`,
-        data.trackId
+        "The file couldn't be saved to your computer. Check your browser's download permissions and try again.",
+        data.trackId,
+        "Could not save file"
       );
     } finally {
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
     }
   } catch (error) {
-    throw new TrackError("Unknown error during download", data.trackId);
+    if (error instanceof TrackError) {
+      throw error;
+    }
+
+    throw new TrackError(
+      "Something went wrong while downloading this track. Please try again.",
+      data.trackId,
+      "Unexpected error"
+    );
   }
 }
 
@@ -341,6 +357,17 @@ interface TranscodingDetails {
 
 function getTranscodingDetails(details: Track): TranscodingDetails[] | null {
   if (details?.media?.transcodings?.length < 1) return null;
+
+  logger.logInfo(
+    `Available transcodings for track ${details.id}`,
+    details.media.transcodings.map((t) => ({
+      protocol: t.format?.protocol,
+      mime_type: t.format?.mime_type,
+      quality: t.quality,
+      snipped: t.snipped,
+      url: t.url,
+    }))
+  );
 
   const mpegStreams = details.media.transcodings
     .filter(
@@ -500,15 +527,28 @@ async function downloadTrack(
   albumName: string | undefined,
   reportProgress: (progress?: number) => void
 ) {
+  if (!track) {
+    logger.logError("Cannot download: track resource is null (resolve failed)");
+
+    throw new Error("Track resource is null (resolve failed)");
+  }
+
   if (!isValidTrack(track)) {
     logger.logError(
       "Track does not satisfy constraints needed to be downloadable",
-      track
+      {
+        id: track.id,
+        kind: track.kind,
+        state: track.state,
+        streamable: track.streamable,
+        downloadable: track.downloadable,
+      }
     );
 
     throw new TrackError(
-      "Track does not satisfy constraints needed to be downloadable",
-      track.id
+      "This track isn't available for download. It may be private, geo-blocked, or still being processed by SoundCloud.",
+      track.id,
+      "Track unavailable"
     );
   }
 
@@ -540,7 +580,11 @@ async function downloadTrack(
   }
 
   if (downloadDetails.length < 1) {
-    throw new TrackError("No download details could be determined", track.id);
+    throw new TrackError(
+      "SoundCloud didn't provide any audio source for this track, so it can't be downloaded.",
+      track.id,
+      "No audio source"
+    );
   }
 
   for (const downloadDetail of downloadDetails) {
@@ -553,7 +597,10 @@ async function downloadTrack(
           downloadDetail
         );
 
-        const streamUrl = await soundcloudApi.getStreamUrl(downloadDetail.url);
+        const streamUrl = await soundcloudApi.getStreamUrl(
+          downloadDetail.url,
+          track.track_authorization
+        );
         stream = {
           url: streamUrl,
           hls: downloadDetail.protocol === "hls",
@@ -583,15 +630,49 @@ async function downloadTrack(
       await handleDownload(downloadData, reportProgress);
 
       return;
-    } catch {
-      // this is to try and download at least one of the available version
+    } catch (error) {
+      logger.logWarn(
+        `Failed to download a version of track ${track.id}, trying next`,
+        {
+          downloadDetail,
+          error: error instanceof Error ? error.message : error,
+        }
+      );
+
       continue;
     }
   }
 
+  const hasDrmOnly =
+    track.media?.transcodings?.length > 0 &&
+    track.media.transcodings.every((t) =>
+      t.format?.protocol?.includes("encrypted")
+    );
+
+  const hasDrm = track.media?.transcodings?.some((t) =>
+    t.format?.protocol?.includes("encrypted")
+  );
+
+  if (hasDrmOnly) {
+    throw new TrackError(
+      "SoundCloud serves this track as a DRM-protected stream. It can be played in the browser but cannot be saved as a file.",
+      track.id,
+      "DRM-protected stream"
+    );
+  }
+
+  if (hasDrm) {
+    throw new TrackError(
+      "SoundCloud only offers this track as a DRM-protected stream. It can be played in the browser but cannot be saved as a file.",
+      track.id,
+      "DRM-protected stream"
+    );
+  }
+
   throw new TrackError(
-    "No version of this track could be downloaded",
-    track.id
+    "None of the available audio versions for this track could be downloaded. SoundCloud may have removed or restricted the audio.",
+    track.id,
+    "Download failed"
   );
 }
 
@@ -611,6 +692,7 @@ interface DownloadProgress {
   downloadId: string;
   progress?: number;
   error?: string;
+  errorLabel?: string;
 }
 
 function sendDownloadProgress(
@@ -620,9 +702,14 @@ function sendDownloadProgress(
   error?: Error | string
 ) {
   let errorMessage: string = "";
+  let errorLabel: string | undefined;
 
   if (error instanceof Error) {
     errorMessage = error.message;
+    const label = (error as { errorLabel?: string }).errorLabel;
+    if (label) {
+      errorLabel = label;
+    }
   } else {
     errorMessage = error;
   }
@@ -631,6 +718,7 @@ function sendDownloadProgress(
     downloadId,
     progress,
     error: errorMessage,
+    errorLabel,
   };
 
   sendMessageToTab(tabId, downloadProgress);
@@ -691,6 +779,11 @@ onMessage(async (sender, message: DownloadRequest) => {
       const trackIdChunkSize = 10;
       const trackIdChunks = chunkArray(trackIds, trackIdChunkSize);
 
+      let successes = 0;
+      let failures = 0;
+      const failureLabels = new Set<string>();
+      let lastFailure: Error | undefined;
+
       let currentTrackIdChunk = 0;
       for (const trackIdChunk of trackIdChunks) {
         const baseTrackNumber = currentTrackIdChunk * trackIdChunkSize;
@@ -712,23 +805,51 @@ onMessage(async (sender, message: DownloadRequest) => {
             trackNumber,
             albumName,
             reportPlaylistProgress(tracks[i].id)
+          ).then(
+            () => {
+              successes++;
+            },
+            (error: Error) => {
+              failures++;
+              lastFailure = error;
+              const label = (error as { errorLabel?: string }).errorLabel;
+              if (label) {
+                failureLabels.add(label);
+              }
+              logger.logError("Failed to download track of set", error);
+            }
           );
 
           downloads.push(download);
         }
 
-        await Promise.all(
-          downloads.map((p) =>
-            p.catch((error) => {
-              logger.logError("Failed to download track of set", error);
-            })
-          )
-        );
+        await Promise.all(downloads);
 
         currentTrackIdChunk++;
       }
 
-      logger.logInfo(`Downloaded ${isAlbum ? "album" : "playlist"}!`);
+      logger.logInfo(
+        `Downloaded ${isAlbum ? "album" : "playlist"} (${successes} ok, ${failures} failed)`
+      );
+
+      if (successes === 0 && failures > 0) {
+        const labels = [...failureLabels];
+        const label =
+          labels.length === 1 ? labels[0] : `All ${failures} tracks failed`;
+        const lastDetail = lastFailure?.message
+          ? ` Last error: ${lastFailure.message}`
+          : "";
+        const summary = Object.assign(
+          new Error(
+            `None of the ${failures} tracks in this set could be downloaded.${lastDetail}`
+          ),
+          { errorLabel: label }
+        );
+
+        sendDownloadProgress(tabId, downloadId, undefined, summary);
+      } else {
+        sendDownloadProgress(tabId, downloadId, 101);
+      }
     } else if (type === "DOWNLOAD") {
       logger.logDebug("Received track download request", { url });
 
