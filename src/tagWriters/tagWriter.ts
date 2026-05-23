@@ -4,7 +4,7 @@ export interface TagWriter {
   setAlbum(album: string): void;
   setComment(comment: string): void;
   setTrackNumber(trackNumber: number): void;
-  setYear(year: number): void;
+  setDate(date: Date): void;
   setArtwork(artworkBuffer: ArrayBuffer): void;
   getBuffer(): Promise<ArrayBuffer>;
 }

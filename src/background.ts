@@ -137,18 +137,32 @@ async function handleDownload(
         parser.push(playlist);
         parser.end();
 
-        const segmentUrls: string[] = parser.manifest.segments.map(
-          (i) => i.uri
-        );
+        const parsedSegments: { uri: string; map?: { uri: string } }[] =
+          parser.manifest.segments;
+
+        // Collect unique EXT-X-MAP init segments. Fragmented MP4 (CMAF) HLS
+        // playlists reference an init segment containing the 'ftyp' and 'moov'
+        // boxes; without it the concatenated media segments are unplayable and
+        // have no moov to attach tags to.
+        const initSegmentUrls: string[] = [];
+        for (const segment of parsedSegments) {
+          const mapUri = segment.map?.uri;
+          if (mapUri && !initSegmentUrls.includes(mapUri)) {
+            initSegmentUrls.push(mapUri);
+          }
+        }
+
+        const segmentUrls: string[] = parsedSegments.map((i) => i.uri);
+        const allUrls = [...initSegmentUrls, ...segmentUrls];
         const segments: ArrayBuffer[] = [];
 
-        for (let i = 0; i < segmentUrls.length; i++) {
-          const segmentReq = await fetch(segmentUrls[i]);
+        for (let i = 0; i < allUrls.length; i++) {
+          const segmentReq = await fetch(allUrls[i]);
           const segment = await segmentReq.arrayBuffer();
 
           segments.push(segment);
 
-          const progress = Math.round((i / segmentUrls.length) * 100);
+          const progress = Math.round((i / allUrls.length) * 100);
 
           reportProgress(progress);
         }
@@ -245,9 +259,7 @@ async function handleDownload(
             writer.setTrackNumber(data.trackNumber);
           }
 
-          const releaseYear = data.uploadDate.getFullYear();
-
-          writer.setYear(releaseYear);
+          writer.setDate(data.uploadDate);
 
           if (artworkUrl) {
             const sizeOptions = ["original", "t500x500", "large"];

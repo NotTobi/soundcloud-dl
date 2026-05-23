@@ -7,6 +7,12 @@ interface Atom {
   offset?: number;
   children?: Atom[];
   data?: ArrayBuffer;
+  // Raw payload to write directly after the 8-byte atom header (no iTunes
+  // 'data' sub-atom wrapper). Used for synthesized atoms like 'hdlr'.
+  rawData?: ArrayBuffer;
+  // True for atoms that were not present in the source buffer and need their
+  // header synthesized at serialization time.
+  synthetic?: boolean;
 }
 
 interface AtomLevel {
@@ -126,10 +132,14 @@ class Mp4 {
             parentHeadLength += 8;
           }
 
-          // set length of parent in buffer
-          this._bufferView.setUint32(parent.offset, parent.length);
-
-          const parentHeader = this._buffer.slice(parent.offset, parent.offset + parentHeadLength);
+          let parentHeader: ArrayBuffer;
+          if (parent.synthetic) {
+            parentHeader = this._buildSyntheticHeader(parent, parentHeadLength);
+          } else {
+            // set length of parent in buffer
+            this._bufferView.setUint32(parent.offset, parent.length);
+            parentHeader = this._buffer.slice(parent.offset, parent.offset + parentHeadLength);
+          }
           buffers.splice(offset, 0, parentHeader);
 
           // we completed the last parent - exit
@@ -151,6 +161,18 @@ class Mp4 {
           levels.push({ parent: child, offset: bufferIndex, childIndex: 0 });
           levelIndex++;
           continue;
+        } else if (child.rawData) {
+          // synthesized atom with raw payload (e.g. 'hdlr') — combined into one
+          // buffer so the bufferIndex stays in step with the array.
+          const combined = new Uint8Array(ATOM_HEAD_LENGTH + child.rawData.byteLength);
+          const headerView = new DataView(combined.buffer);
+          headerView.setUint32(0, child.length);
+          const nameChars = this._getCharCodes(child.name);
+          for (let i = 0; i < nameChars.length; i++) {
+            headerView.setUint8(4 + i, nameChars[i]);
+          }
+          combined.set(new Uint8Array(child.rawData), ATOM_HEAD_LENGTH);
+          buffers.push(combined.buffer);
         } else if (child.data) {
           // add new data to buffer
           const headerBuffer = this._getHeaderBufferFromAtom(child);
@@ -179,33 +201,106 @@ class Mp4 {
   }
 
   private _insertAtom(atom: Atom, path: string[]) {
-    if (!path) throw new Error("Path can not be empty");
+    if (!path || path.length < 1) throw new Error("Path can not be empty");
 
-    const parentAtom = this._findAtom(this._atoms, path);
-
-    if (!parentAtom) throw new Error(`Parent atom at path '${path.join(" > ")}' could not be found`);
+    const parentAtom = this._ensurePath(path);
 
     if (parentAtom.children === undefined) {
       parentAtom.children = this._readChildAtoms(parentAtom);
     }
 
-    let offset = parentAtom.offset + ATOM_HEAD_LENGTH;
-
-    if (parentAtom.name === "meta") {
-      offset += 4;
-    } else if (parentAtom.name === "stsd") {
-      offset += 8;
-    }
-
-    if (parentAtom.children.length > 0) {
-      const lastChild = parentAtom.children[parentAtom.children.length - 1];
-
-      offset = lastChild.offset + lastChild.length;
-    }
-
-    atom.offset = offset;
+    // Offset is only used when serializing existing (non-synthetic) leaf atoms
+    // by slicing from the source buffer. New atoms are written from `data` /
+    // `rawData`, so a placeholder is fine.
+    atom.offset = 0;
 
     parentAtom.children.push(atom);
+  }
+
+  // Walk the path under the top-level atoms, creating any missing container
+  // atoms as synthetic nodes. Returns the deepest atom on the path.
+  private _ensurePath(path: string[]): Atom {
+    let current = this._atoms.find((a) => a.name === path[0]);
+
+    if (!current) {
+      // Don't synthesize top-level containers (e.g. 'moov') — if they're
+      // absent the file isn't an MP4 we can tag.
+      throw new Error(`Top-level atom '${path[0]}' could not be found`);
+    }
+
+    for (let i = 1; i < path.length; i++) {
+      if (current.children === undefined) {
+        current.children = this._readChildAtoms(current);
+      }
+
+      const childName = path[i];
+      let child = current.children.find((c) => c.name === childName);
+
+      if (!child) {
+        child = this._createSyntheticContainer(childName);
+        current.children.push(child);
+
+        // 'meta' is required (by the iTunes/MP4 spec) to start with an 'hdlr'
+        // atom declaring metadata handler type 'mdir'. Without it most
+        // players silently ignore the entire 'ilst' payload.
+        if (childName === "meta") {
+          const hdlrPayload = this._buildMetadataHdlrPayload();
+          const hdlrAtom: Atom = {
+            name: "hdlr",
+            length: ATOM_HEAD_LENGTH + hdlrPayload.byteLength,
+            rawData: hdlrPayload,
+            synthetic: true,
+          };
+          child.children = [hdlrAtom];
+        }
+      } else if (child.children === undefined) {
+        child.children = this._readChildAtoms(child);
+      }
+
+      current = child;
+    }
+
+    return current;
+  }
+
+  private _createSyntheticContainer(name: string): Atom {
+    let length = ATOM_HEAD_LENGTH;
+    if (name === "meta") {
+      // 4 bytes version + flags after the header.
+      length += 4;
+    }
+
+    return {
+      name,
+      length,
+      children: [],
+      synthetic: true,
+    };
+  }
+
+  private _buildSyntheticHeader(atom: Atom, headLength: number): ArrayBuffer {
+    const header = new ArrayBuffer(headLength);
+    const view = new DataView(header);
+    view.setUint32(0, atom.length);
+    const nameChars = this._getCharCodes(atom.name);
+    for (let i = 0; i < nameChars.length; i++) {
+      view.setUint8(4 + i, nameChars[i]);
+    }
+    // For 'meta' the extra 4 bytes (version + flags) are left as zero.
+    return header;
+  }
+
+  private _buildMetadataHdlrPayload(): ArrayBuffer {
+    // version(1) + flags(3) + pre_defined(4) + handler_type(4) +
+    // reserved(12) + name(1, null terminator) = 25 bytes
+    const buffer = new ArrayBuffer(25);
+    const view = new DataView(buffer);
+    // handler_type 'mdir' at offset 8
+    const handlerType = this._getCharCodes("mdir");
+    for (let i = 0; i < 4; i++) {
+      view.setUint8(8 + i, handlerType[i]);
+    }
+    return buffer;
   }
 
   private _findAtom(atoms: Atom[], path: string[]): Atom | null {
@@ -396,10 +491,10 @@ export class Mp4TagWriter implements TagWriter {
     this._mp4.addMetadataAtom("trkn", trackNumber);
   }
 
-  setYear(year: number): void {
-    if (year < 1) throw new Error("Invalud value for year");
+  setDate(date: Date): void {
+    if (!date || isNaN(date.getTime())) throw new Error("Invalid value for date");
 
-    this._mp4.addMetadataAtom("©day", year.toString());
+    this._mp4.addMetadataAtom("©day", date.toISOString());
   }
 
   setArtwork(artworkBuffer: ArrayBuffer): void {

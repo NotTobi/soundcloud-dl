@@ -42,10 +42,10 @@ export class WavTagWriter implements TagWriter {
     this.wav.setTag("ITRK", trackNumber.toString());
   }
 
-  setYear(year: number): void {
-    if (year < 1) throw new Error("Invalud value for year");
+  setDate(date: Date): void {
+    if (!date || isNaN(date.getTime())) throw new Error("Invalid value for date");
 
-    this.wav.setTag("ICRD", year.toString());
+    this.wav.setTag("ICRD", date.toISOString().slice(0, 10));
   }
 
   setArtwork(artworkBuffer: ArrayBuffer): void {

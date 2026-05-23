@@ -42,10 +42,12 @@ export class Mp3TagWriter implements TagWriter {
     this.writer.setFrame("TRCK", trackNumber);
   }
 
-  setYear(year: number): void {
-    if (year < 1) throw new Error("Invalud value for year");
+  setDate(date: Date): void {
+    if (!date || isNaN(date.getTime())) throw new Error("Invalid value for date");
 
-    this.writer.setFrame("TYER", year);
+    // browser-id3-writer only supports ID3v2.3, which has no combined
+    // date/time frame — TYER (year) is the highest fidelity we can write.
+    this.writer.setFrame("TYER", date.getUTCFullYear());
   }
 
   setArtwork(artworkBuffer: ArrayBuffer): void {
