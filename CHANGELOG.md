@@ -1,3 +1,8 @@
+## 1.14.3
+
+- Improve error messages to call out when content is DRM protected and can't be downloaded
+- Support new UI
+
 ## 1.14.1
 
 - Display download button for tracks with a custom background
