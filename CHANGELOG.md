@@ -1,3 +1,8 @@
+## 1.15.0
+
+- Support CMAF (fragmented MP4)
+- Set full date in metdata (only for .m4a and .wav files)
+
 ## 1.14.3
 
 - Improve error messages to call out when content is DRM protected and can't be downloaded
