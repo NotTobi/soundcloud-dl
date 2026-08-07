@@ -118,3 +118,5 @@ dist/js
 dist/manifest.json
 
 .idea
+
+.DS_Store

@@ -13,7 +13,7 @@
   },
   "homepage": "https://github.com/NotTobi/soundcloud-dl#readme",
   "scripts": {
-    "start": "webpack --watch",
+    "dev": "webpack --watch",
     "build": "webpack",
     "test": "jest"
   },

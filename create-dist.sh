@@ -18,13 +18,13 @@ cd dist
 
 jq -s ".[0] * .[1]" "manifest_original.json" "manifest_chrome.json" > "manifest.json"
 
-zip -r "SoundCloud-Downloader-Chrome.zip" . -x "manifest_*" "*.zip"
+zip -r "SoundCloud-Downloader-Chrome.zip" . -x "manifest_*" "*.zip" ".DS_Store"
 
 # bundle for Firefox
 
 jq -s ".[0] * .[1]" "manifest_original.json" "manifest_firefox.json" > "manifest.json"
 
-zip -r "SoundCloud-Downloader-Firefox.zip" . -x "manifest_*" "*.zip"
+zip -r "SoundCloud-Downloader-Firefox.zip" . -x "manifest_*" "*.zip" ".DS_Store"
 
 # archive source code for firefox review process
 cd ..

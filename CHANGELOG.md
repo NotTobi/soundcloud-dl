@@ -1,3 +1,8 @@
+## 1.16.0
+
+- Support the redesigned track page, which is rendered in an iframe
+- Download buttons are now icon buttons that blend in with the surrounding button groups, including their tooltips
+
 ## 1.15.0
 
 - Support CMAF (fragmented MP4)

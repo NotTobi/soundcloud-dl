@@ -9,7 +9,6 @@ export interface ObserverEvent {
 export class DomObserver {
   private observer: MutationObserver;
   private events: ObserverEvent[] = [];
-  private unqiueNodeId: number = 0;
   private logger: Logger;
 
   constructor() {
@@ -70,11 +69,9 @@ export class DomObserver {
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i];
 
+      // Nodes are reused across rerenders, during which anything we added to
+      // them is removed again, so every match has to be emitted
       if (this.matchesSelectors(node, event.selector)) {
-        // We only want to emmit an event once
-        if (node._id !== undefined) return;
-
-        node._id = ++this.unqiueNodeId;
         event.callback(node);
       }
 
